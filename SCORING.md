@@ -85,6 +85,21 @@ overall identity — "would a stranger recognize the reference?"):
 | 29–30 | vitrail | shipped | new deformDepth param for smooth leaded panes |
 | 31–34 | (regression) | pass | watercolor, sumi, nocturne re-verified after engine hooks |
 
+## Interface + cosmic engine expansion (35–40)
+
+| iter | what | verdict | notes |
+|------|------|---------|-------|
+| 35 | gallery UI | pass | painted swatch previews replace the dropdown; soft-fade skin switch |
+| 36 | aurora | shipped first-pass | leanMode:"vertical" curtains |
+| 37 | spiral | shipped first-pass | placement:"orbit" spiral-arm galaxy |
+| 38 | embers | shipped first-pass | gravity:-0.55, sparks climb, white-hot accent tips |
+| 39 | suminagashi | shipped first-pass | ringed:true floating ink rings |
+| 40 | shortcuts + record | pass | keyboard cycle/clear verified; MediaRecorder + captureStream present |
+
+New engine params for skins: placement ("scatter"|"orbit"), leanMode ("flow"|"vertical"),
+gravity (negative = rises), ringed (stroke rings instead of fills). UI: skin gallery swatches,
+keyboard shortcuts, focus mode (f), video recording with audio (r), soft-fade clears.
+
 Skin-specific taste rules: every skin must keep the fifths-derived determinism audible-to-visible
 (same chord, same color/tone family), must remain quiet-chrome (panel/status restyled, never
 redesigned), and must pass the identity question above. When evaluating a new skin, run the

@@ -25,6 +25,12 @@ The panel's **skin** dropdown switches the visual world; the music-to-paint engi
 - **riso** — four risograph spot inks, flat shapes, misregistration charm
 - **delft** — cobalt at infinite depths on porcelain, gold kintsugi beads
 - **vitrail** — jewel glass panes held together by lead seams
+- **aurora** — vertical curtains of light in an arctic sky
+- **spiral** — a galaxy assembling itself, strikes riding a turning arm
+- **embers** — coals on char; gravity reversed, sparks climb
+- **suminagashi** — floating ink rings, the oldest marbling
+
+The panel shows painted swatch previews of every skin. Keyboard: `c` clear, `s` save, `r` record video (with audio), `f` focus mode (fullscreen, chrome hidden), `h` panel, `[` `]` cycle skins.
 
 To make a new skin, copy any file in `skins/`, change the name and values, and add a `<script>` tag in `index.html`. See `engine.js` `DEFAULT_PARAMS` for everything a skin can override.
 

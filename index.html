@@ -134,17 +134,43 @@
   }
   .ctl label b { font-weight: 450; color: var(--ink); }
 
-  select {
-    appearance: none; -webkit-appearance: none;
-    background: transparent;
-    border: none; border-bottom: 1px solid var(--hairline);
-    font-family: "Sorts Mill Goudy", Georgia, serif; font-style: italic;
-    font-size: 16px; color: var(--ink);
-    padding: 2px 0 6px; cursor: pointer;
-    border-radius: 0;
+  #skinGallery {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   }
-  select:hover { border-bottom-color: var(--ink-soft); }
-  select:focus { outline: none; border-bottom-color: var(--ink); }
+  .swatch {
+    background: none; border: 1px solid var(--hairline); border-radius: 7px;
+    padding: 0; cursor: pointer; overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: border-color 0.3s var(--ease), transform 0.3s var(--ease);
+  }
+  .swatch:hover { border-color: var(--ink-soft); transform: translateY(-1px); }
+  .swatch.on { border-color: var(--ink); }
+  .swatch canvas { width: 100%; height: 54px; display: block; object-fit: cover; }
+  .swatch span {
+    font-size: 11.5px; color: var(--ink-soft); padding: 4px 0 5px;
+    text-align: center; letter-spacing: 0.02em;
+  }
+  .swatch.on span { color: var(--ink); }
+
+  #keysHint {
+    margin-top: auto; padding-top: 18px;
+    font-size: 11px; color: var(--ink-soft); opacity: 0.75;
+    letter-spacing: 0.02em;
+  }
+
+  /* focus mode: nothing but the painting */
+  body.focus-mode #wordmark, body.focus-mode #panelToggle,
+  body.focus-mode #status, body.focus-mode #panel { opacity: 0; pointer-events: none; }
+  body.focus-mode.cursor-hidden { cursor: none; }
+  #wordmark, #panelToggle, #panel { transition: opacity 0.8s var(--ease), transform 0.45s var(--ease); }
+
+  /* recording: a quiet pulse beside the status */
+  body.recording #status { opacity: 1; }
+  body.recording #listening::before {
+    content: "● "; color: oklch(0.55 0.19 25);
+    animation: recpulse 2s ease-in-out infinite;
+  }
+  @keyframes recpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
   input[type="range"] {
     -webkit-appearance: none; appearance: none;
@@ -217,7 +243,7 @@
 
   <div class="ctl">
     <label>skin</label>
-    <select id="skinSel"></select>
+    <div id="skinGallery"></div>
   </div>
 
   <div class="ctl">
@@ -269,7 +295,10 @@
   <div class="panel-actions">
     <button class="bare" id="btnClear">clear canvas</button>
     <button class="bare" id="btnSave">save painting</button>
+    <button class="bare" id="btnRecord">record video</button>
   </div>
+
+  <div id="keysHint">c clear &nbsp;·&nbsp; s save &nbsp;·&nbsp; r record &nbsp;·&nbsp; f focus &nbsp;·&nbsp; [ ] skins</div>
 </div>
 
 <script src="engine.js"></script>
@@ -281,5 +310,9 @@
 <script src="skins/riso.js"></script>
 <script src="skins/delft.js"></script>
 <script src="skins/vitrail.js"></script>
+<script src="skins/aurora.js"></script>
+<script src="skins/spiral.js"></script>
+<script src="skins/embers.js"></script>
+<script src="skins/suminagashi.js"></script>
 </body>
 </html>

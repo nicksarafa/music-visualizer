@@ -33,35 +33,95 @@ const DEFAULT_PARAMS = {
   threadAlpha: 0.30,        // connection line opacity
   threadNodes: true,        // node beads at thread ends
   sizeMul: 1,               // overall wash scale
+  placement: "scatter",     // "scatter" | "orbit" (spiral arm around center)
+  leanMode: "flow",         // "flow" | "vertical" (curtains)
+  gravity: 1,               // drip direction/speed; negative = paint rises
+  ringed: false,            // stroke floating rings instead of filled washes
   grain: { base: 235, spread: 20, warm: true, alpha: 10, density: 0.5, light: false },
 };
 
 function P(key) { return (SKIN && SKIN.params && key in SKIN.params) ? SKIN.params[key] : DEFAULT_PARAMS[key]; }
 
+// a painted swatch preview for the gallery: paper, three strokes of the
+// skin's palette, one drip
+function paintSwatch(canvas, skin) {
+  const g = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  const p = key => (skin.params && key in skin.params) ? skin.params[key] : DEFAULT_PARAMS[key];
+  g.fillStyle = p("paperHex");
+  g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = p("blend") === "screen" ? "screen" : "multiply";
+  const col = skin.color || defaultColor;
+  const swatchPcs = [0, 7, 9];   // C, G, A — a familiar family
+  swatchPcs.forEach((pc, i) => {
+    const cx = w * (0.24 + i * 0.26) + Math.sin(i * 7 + 1) * 3;
+    const cy = h * (0.38 + Math.sin(i * 5) * 0.1);
+    const r = h * 0.3;
+    for (let k = 0; k < 7; k++) {
+      g.fillStyle = col(pc, 0.13, i * 3.7 + k, 1, 0);
+      g.beginPath();
+      g.ellipse(cx + Math.sin(k * 9 + i) * 2.5, cy + Math.cos(k * 5) * 2,
+                r * (0.5 + k * 0.09) * 1.25, r * (0.5 + k * 0.09) * 0.9,
+                i - k * 0.1, 0, Math.PI * 2);
+      p("ringed") ? (g.strokeStyle = g.fillStyle, g.lineWidth = 1, g.stroke()) : g.fill();
+    }
+    if (i === 1) {
+      g.strokeStyle = col(pc, 0.3, 2, 1, 0);
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(cx, cy + r * 0.5);
+      g.quadraticCurveTo(cx + 2, cy + r * 1.4, cx - 1, h * 0.92);
+      g.stroke();
+    }
+  });
+}
+
 function registerSkin(skin) {
   SKINS[skin.name] = skin;
-  const sel = document.getElementById("skinSel");
-  if (sel && !sel.querySelector(`option[value="${skin.name}"]`)) {
-    const o = document.createElement("option");
-    o.value = skin.name;
-    o.textContent = skin.name;
-    sel.appendChild(o);
+  const gal = document.getElementById("skinGallery");
+  if (gal && !gal.querySelector(`[data-skin="${skin.name}"]`)) {
+    const btn = document.createElement("button");
+    btn.className = "swatch";
+    btn.dataset.skin = skin.name;
+    btn.title = skin.name;
+    const cv = document.createElement("canvas");
+    cv.width = 104; cv.height = 56;
+    paintSwatch(cv, skin);
+    const label = document.createElement("span");
+    label.textContent = skin.name;
+    btn.appendChild(cv);
+    btn.appendChild(label);
+    btn.addEventListener("click", () => setSkin(skin.name));
+    gal.appendChild(btn);
   }
 }
 
+let skinFading = false;
 function setSkin(name, { keepPaint = false } = {}) {
   const skin = SKINS[name];
-  if (!skin) return;
-  SKIN = skin;
-  // apply CSS variables
-  const root = document.documentElement;
-  for (const [k, v] of Object.entries(skin.vars || {})) root.style.setProperty(k, v);
-  paintC.style.mixBlendMode = P("blend");
-  makeGrain();
-  if (!keepPaint) clearPainting();
-  const sel = document.getElementById("skinSel");
-  if (sel && sel.value !== name) sel.value = name;
+  if (!skin || (SKIN && SKIN.name === name && !keepPaint)) return;
+  const apply = () => {
+    SKIN = skin;
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries(skin.vars || {})) root.style.setProperty(k, v);
+    paintC.style.mixBlendMode = P("blend");
+    makeGrain();
+  };
+  document.querySelectorAll("#skinGallery .swatch").forEach(b =>
+    b.classList.toggle("on", b.dataset.skin === name));
   try { localStorage.setItem("pigment-skin", name); } catch (e) {}
+  if (keepPaint || !SKIN) { apply(); return; }
+  // the old painting dissolves rather than vanishing
+  if (skinFading) { apply(); clearPainting(); paintC.style.opacity = "1"; return; }
+  skinFading = true;
+  paintC.style.transition = "opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1)";
+  paintC.style.opacity = "0";
+  setTimeout(() => {
+    apply();
+    clearPainting();
+    paintC.style.opacity = "1";
+    skinFading = false;
+  }, 720);
 }
 
 window.PIGMENT = { registerSkin, setSkin, SKINS, helpers: { pcHue: (...a) => pcHue(...a), gauss: (...a) => gauss(...a) } };
@@ -311,15 +371,29 @@ function spawnStrike(pcs, level) {
 
   let x = 0, y = 0;
   const minD = Math.min(W, H);
-  const recent = recentPoints.slice(-6);
-  for (let attempt = 0; attempt < 5; attempt++) {
-    x = W * (0.07 + Math.random() * 0.86);
-    y = H * (0.07 + Math.random() * 0.86);
-    if (recent.every(p => Math.hypot(p.x - x, p.y - y) > minD * 0.27)) break;
+  if (P("placement") === "orbit") {
+    // strikes ride a slowly turning spiral arm around the center
+    flow.orbitA = (flow.orbitA || 0) + 0.55 + Math.random() * 0.25;
+    const turns = (flow.orbitA % (Math.PI * 5.2)) / (Math.PI * 5.2);
+    const rad = minD * (0.08 + turns * 0.42);
+    x = W * 0.5 + Math.cos(flow.orbitA) * rad * (W / H > 1.4 ? 1.25 : 1)
+      + gauss() * minD * 0.03;
+    y = H * 0.5 + Math.sin(flow.orbitA) * rad + gauss() * minD * 0.03;
+    x = Math.max(W * 0.05, Math.min(W * 0.95, x));
+    y = Math.max(H * 0.05, Math.min(H * 0.95, y));
+    flow.a = flow.orbitA + Math.PI / 2 + gauss() * 0.2;
+  } else {
+    const recent = recentPoints.slice(-6);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      x = W * (0.07 + Math.random() * 0.86);
+      y = H * (0.07 + Math.random() * 0.86);
+      if (recent.every(p => Math.hypot(p.x - x, p.y - y) > minD * 0.27)) break;
+    }
+    const prev = recentPoints[recentPoints.length - 1];
+    flow.a = prev ? Math.atan2(y - prev.y, x - prev.x) + gauss() * 0.4
+                  : Math.random() * Math.PI * 2;
   }
-  const prev = recentPoints[recentPoints.length - 1];
-  flow.a = prev ? Math.atan2(y - prev.y, x - prev.x) + gauss() * 0.4
-                : Math.random() * Math.PI * 2;
+  if (P("leanMode") === "vertical") flow.a = Math.PI / 2 + gauss() * 0.12;
   spawnThreads(x, y, pcs[0].pc);
   rememberPoint(x, y, pcs[0].pc);
 
@@ -361,9 +435,10 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
     glosses.push({ x, y, r: r * 0.8, born: performance.now() + delay, life: 7000 });
   }
   if (ctl.drip > 0.15 && Math.random() < 0.28 + ctl.drip * 0.35) {
+    const side = P("gravity") >= 0 ? 1 : -1;   // sparks break from the top
     drips.push({
       x: x + (Math.random() - 0.5) * r * 0.6,
-      y: y + r * (0.2 + Math.random() * 0.3),
+      y: y + side * r * (0.2 + Math.random() * 0.3),
       w: (2.6 + Math.random() * 2.4 + level * 2.5) * DPR * P("dripWidthMul"),
       pc, seed: Math.random(),
       budget: r * (0.8 + ctl.drip * 3.2) * (0.6 + Math.random() * 0.8),
@@ -383,11 +458,18 @@ function drawBloomLayers(b, target) {
     const run = Math.floor(b.drawn / 5);
     const hueOff = Math.sin(b.seed * 40 + run * 2.1) * 9;
     const variant = deform(b.poly.map(p => ({ ...p })), b.r * P("deformLayer") * b.edgeSoft, 2);
-    pctx.fillStyle = pigmentColor(b.pc,
-      (P("layerAlphaBase") + P("layerAlphaVar") * (1 - frac)) * (b.aMul || 1),
-      b.seed + b.drawn, b.quality, hueOff);
-    tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
-    pctx.fill();
+    const alpha = (P("layerAlphaBase") + P("layerAlphaVar") * (1 - frac)) * (b.aMul || 1);
+    if (P("ringed")) {
+      // suminagashi: concentric floating rings instead of filled washes
+      pctx.strokeStyle = pigmentColor(b.pc, Math.min(1, alpha * 2.4), b.seed + b.drawn, b.quality, hueOff);
+      pctx.lineWidth = (0.8 + Math.random() * 1.3) * DPR;
+      tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
+      pctx.stroke();
+    } else {
+      pctx.fillStyle = pigmentColor(b.pc, alpha, b.seed + b.drawn, b.quality, hueOff);
+      tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
+      pctx.fill();
+    }
     b.drawn++;
   }
 }
@@ -447,7 +529,7 @@ function stepDrips(now, dt) {
     }
     const speed = (9 + ctl.drip * 30) * DPR;
     const slip = 0.4 + 0.6 * Math.sin(now / 1300 + d.phase) ** 2;
-    const dy = speed * slip * dt;
+    const dy = speed * slip * dt * P("gravity");
     const nx = d.x + d.drift * dy
              + (Math.sin(now / 2400 + d.phase * 3) * 0.07
               + Math.sin(now / 830 + d.phase * 7) * 0.045) * DPR;
@@ -462,7 +544,7 @@ function stepDrips(now, dt) {
     pctx.lineTo(nx, ny);
     pctx.stroke();
     d.x = nx; d.y = ny;
-    d.budget -= dy;
+    d.budget -= Math.abs(dy);
   }
 }
 
@@ -724,6 +806,7 @@ function frame(now) {
     remaining -= dt;
   }
   stepGloss(now);
+  if (recorder && recComp) compositeTo(recComp.getContext("2d"));
   requestAnimationFrame(frame);
 }
 
@@ -751,23 +834,113 @@ document.getElementById("srcOff").addEventListener("click", () => {
 });
 document.getElementById("btnClear").addEventListener("click", clearPainting);
 
-document.getElementById("skinSel").addEventListener("change", e => {
-  setSkin(e.target.value);
-});
-
-document.getElementById("btnSave").addEventListener("click", () => {
-  const out = document.createElement("canvas");
-  out.width = W; out.height = H;
-  const o = out.getContext("2d");
+function compositeTo(o) {
   o.fillStyle = P("paperHex");
   o.fillRect(0, 0, W, H);
+  o.globalAlpha = 0.5;
   o.drawImage(grainC, 0, 0);
+  o.globalAlpha = 1;
   o.globalCompositeOperation = P("blend") === "screen" ? "screen" : "multiply";
   o.drawImage(paintC, 0, 0);
+  o.globalCompositeOperation = "source-over";
+  o.drawImage(wetC, 0, 0);
+}
+
+function savePainting() {
+  const out = document.createElement("canvas");
+  out.width = W; out.height = H;
+  compositeTo(out.getContext("2d"));
   const a = document.createElement("a");
-  a.download = "pigment.png";
+  const d = new Date();
+  a.download = `pigment-${SKIN ? SKIN.name : "painting"}-` +
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}.png`;
   a.href = out.toDataURL("image/png");
   a.click();
+}
+document.getElementById("btnSave").addEventListener("click", savePainting);
+
+/* ---- video recording: the painting plus its sound ---- */
+
+let recorder = null, recChunks = [], recComp = null, recDest = null;
+
+function toggleRecord() {
+  if (recorder) { recorder.stop(); return; }
+  ensureCtx();
+  recComp = document.createElement("canvas");
+  recComp.width = W; recComp.height = H;
+  const stream = recComp.captureStream(30);
+  recDest = ac.createMediaStreamDestination();
+  analyser.connect(recDest);
+  const audio = recDest.stream.getAudioTracks()[0];
+  if (audio) stream.addTrack(audio);
+  recChunks = [];
+  recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+  recorder.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
+  recorder.onstop = () => {
+    try { analyser.disconnect(recDest); } catch (e) {}
+    const blob = new Blob(recChunks, { type: "video/webm" });
+    const a = document.createElement("a");
+    const d = new Date();
+    a.download = `pigment-${SKIN ? SKIN.name : "session"}-` +
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}.webm`;
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    recorder = null; recComp = null; recDest = null;
+    updateRecUi();
+  };
+  recorder.start(1000);
+  updateRecUi();
+}
+
+function updateRecUi() {
+  const btn = document.getElementById("btnRecord");
+  if (btn) btn.textContent = recorder ? "■ stop recording" : "record video";
+  document.body.classList.toggle("recording", !!recorder);
+}
+document.getElementById("btnRecord").addEventListener("click", toggleRecord);
+
+/* ---- focus mode: nothing but the painting ---- */
+
+let cursorTimer = null;
+function toggleFocus() {
+  const on = document.body.classList.toggle("focus-mode");
+  if (on) {
+    document.body.classList.remove("panel-open");
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  } else if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+document.addEventListener("mousemove", () => {
+  if (!document.body.classList.contains("focus-mode")) return;
+  document.body.classList.remove("cursor-hidden");
+  clearTimeout(cursorTimer);
+  cursorTimer = setTimeout(() => document.body.classList.add("cursor-hidden"), 2200);
+});
+
+/* ---- keyboard ---- */
+
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+  const names = Object.keys(SKINS);
+  const idx = SKIN ? names.indexOf(SKIN.name) : 0;
+  switch (e.key) {
+    case "c": clearPainting(); break;
+    case "s": savePainting(); break;
+    case "r": toggleRecord(); break;
+    case "f": toggleFocus(); break;
+    case "h": document.body.classList.toggle("panel-open"); break;
+    case "[": setSkin(names[(idx - 1 + names.length) % names.length]); break;
+    case "]": setSkin(names[(idx + 1) % names.length]); break;
+    case "Escape":
+      if (document.body.classList.contains("focus-mode")) toggleFocus();
+      break;
+  }
 });
 
 /* ---------------- boot ---------------- */
