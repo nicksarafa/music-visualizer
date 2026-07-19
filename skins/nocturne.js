@@ -28,8 +28,8 @@ PIGMENT.registerSkin({
   },
   color(pc, alpha, seed, quality = 1, hueOff = 0) {
     const hue = (PIGMENT.helpers.pcHue(pc) + hueOff + 360) % 360;
-    const l = 0.60 + Math.sin(seed * 12.9898) * 0.07 - (1 - quality) * 0.08;
-    const c = (0.17 + Math.sin(seed * 78.233) * 0.025) * (0.75 + quality * 0.25);
+    const l = 0.66 + Math.sin(seed * 12.9898) * 0.07 - (1 - quality) * 0.08;
+    const c = (0.19 + Math.sin(seed * 78.233) * 0.025) * (0.75 + quality * 0.25);
     return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${hue.toFixed(1)} / ${alpha.toFixed(3)})`;
   },
   edge(pc, alpha) {
