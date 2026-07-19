@@ -30,7 +30,8 @@ PIGMENT.registerSkin({
     threadAlpha: 0.5,
     grain: { base: 235, spread: 20, warm: true, alpha: 14, density: 0.6 },
   },
-  // pitch class -> one of four spot inks, by circle-of-fifths quadrant
+  // pitch class -> one of four spot inks, interleaved around the fifths
+  // wheel so every key prints in a mix of inks, the riso way
   color(pc, alpha, seed, quality = 1) {
     const fifth = (pc * 7) % 12;
     const INKS = [
@@ -39,7 +40,7 @@ PIGMENT.registerSkin({
       [0.55, 0.16, 258],   // medium blue
       [0.7, 0.15, 152],    // green
     ];
-    const [l, c, h] = INKS[Math.floor(fifth / 3)];
+    const [l, c, h] = INKS[fifth % 4];
     const lj = l + Math.sin(seed * 12.9898) * 0.03 - (1 - quality) * 0.05;
     return `oklch(${lj.toFixed(3)} ${c} ${h} / ${alpha.toFixed(3)})`;
   },
