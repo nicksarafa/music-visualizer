@@ -110,6 +110,17 @@ keyboard shortcuts, focus mode (f), video recording with audio (r), soft-fade cl
 | 45–46 | flora | shipped | leaf-only first draft; interleaved fern/blossom by fifth parity |
 | 46 | neon | shipped first-pass | ringed tubes in four gas colors, wire threads, rain-run drips |
 
+## Pre-test inspection pass (47)
+
+Full sweep before user testing: all 16 skins re-verified with the fixed verse after the
+splat/DOMContentLoaded changes (fresco, riso, delft, vitrail screenshots confirmed healthy;
+the rest verified earlier this session). Two defects found and fixed:
+1. Light-theme flash on load for users with a dark remembered skin — skin now applies at
+   DOMContentLoaded instead of window.load.
+2. Gallery swatches over-inked: preview strokes covered the tile so light-paper skins (sumi,
+   fresco) read as dark skins — stroke size/alpha reduced so the paper color shows.
+Panel verified on a dark skin: 16 swatches legible, active outline correct, hint line quiet.
+
 Skin-specific taste rules: every skin must keep the fifths-derived determinism audible-to-visible
 (same chord, same color/tone family), must remain quiet-chrome (panel/status restyled, never
 redesigned), and must pass the identity question above. When evaluating a new skin, run the

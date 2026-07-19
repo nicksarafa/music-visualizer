@@ -55,14 +55,14 @@ function paintSwatch(canvas, skin) {
   const col = skin.color || defaultColor;
   const swatchPcs = [0, 7, 9];   // C, G, A — a familiar family
   swatchPcs.forEach((pc, i) => {
-    const cx = w * (0.24 + i * 0.26) + Math.sin(i * 7 + 1) * 3;
-    const cy = h * (0.38 + Math.sin(i * 5) * 0.1);
-    const r = h * 0.3;
+    const cx = w * (0.22 + i * 0.28) + Math.sin(i * 7 + 1) * 3;
+    const cy = h * (0.4 + Math.sin(i * 5) * 0.12);
+    const r = h * 0.22;
     for (let k = 0; k < 7; k++) {
-      g.fillStyle = col(pc, 0.13, i * 3.7 + k, 1, 0);
+      g.fillStyle = col(pc, 0.11, i * 3.7 + k, 1, 0);
       g.beginPath();
-      g.ellipse(cx + Math.sin(k * 9 + i) * 2.5, cy + Math.cos(k * 5) * 2,
-                r * (0.5 + k * 0.09) * 1.25, r * (0.5 + k * 0.09) * 0.9,
+      g.ellipse(cx + Math.sin(k * 9 + i) * 2, cy + Math.cos(k * 5) * 1.6,
+                r * (0.5 + k * 0.09) * 1.2, r * (0.5 + k * 0.09) * 0.88,
                 i - k * 0.1, 0, Math.PI * 2);
       p("ringed") ? (g.strokeStyle = g.fillStyle, g.lineWidth = 1, g.stroke()) : g.fill();
     }
@@ -962,9 +962,9 @@ document.addEventListener("keydown", e => {
 resize();
 requestAnimationFrame(frame);
 
-// activate the remembered (or first-registered) skin once all skin
-// files have run
-window.addEventListener("load", () => {
+// activate the remembered (or first-registered) skin as soon as the skin
+// scripts have run — DOMContentLoaded, not load, to avoid a light-theme flash
+window.addEventListener("DOMContentLoaded", () => {
   let name = null;
   try { name = localStorage.getItem("pigment-skin"); } catch (e) {}
   if (!name || !SKINS[name]) name = Object.keys(SKINS)[0];
