@@ -66,3 +66,26 @@ Chronological. Add one row per evaluated iteration. `—` = not evaluated that r
 Iterations 1–15 were run against `solar-drift-a/b.wav` (40s listen + 10s render). The bar going
 forward: any change to the paint engine must re-run the standard evaluation on BOTH tracks and
 must not drop any dimension below its logged value.
+
+## Skin iterations (16–34)
+
+Iterations 16–34 built the skin system (engine.js + skins/, see CLAUDE.md) and eight skins.
+Per-skin verdicts (dimensions 1–3 and 6 are engine-owned and unchanged; scored on 4, 5, and
+overall identity — "would a stranger recognize the reference?"):
+
+| iter | skin | verdict | notes |
+|------|------|---------|-------|
+| 16 | (refactor) | pass | watercolor parity with iteration 15 |
+| 17–19 | sumi | shipped | red-as-C failed (C is everywhere); red moved to seal-bead accents |
+| 20–21 | nocturne | shipped | luminosity lifted after dim first draft |
+| 22–23 | fresco | shipped | drab first draft; tonal spread + grain lifted |
+| 24–25 | cosmos | shipped | needed void: smaller clouds, visible starfield |
+| 26–27 | riso | shipped | quadrant ink mapping let pink dominate; interleaved |
+| 28 | delft | shipped | right on the first pass |
+| 29–30 | vitrail | shipped | new deformDepth param for smooth leaded panes |
+| 31–34 | (regression) | pass | watercolor, sumi, nocturne re-verified after engine hooks |
+
+Skin-specific taste rules: every skin must keep the fifths-derived determinism audible-to-visible
+(same chord, same color/tone family), must remain quiet-chrome (panel/status restyled, never
+redesigned), and must pass the identity question above. When evaluating a new skin, run the
+standard protocol once on either track plus one fixed-verse spawnStrike sweep.
