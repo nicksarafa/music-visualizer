@@ -25,16 +25,16 @@ PIGMENT.registerSkin({
     layerAlphaBase: 0.03,
     layerAlphaVar: 0.018,
     deformLayer: 0.035,
-    grain: { base: 222, spread: 28, warm: true, alpha: 16, density: 0.7 },
+    grain: { base: 222, spread: 30, warm: true, alpha: 21, density: 0.75 },
   },
   color(pc, alpha, seed, quality = 1, hueOff = 0) {
     // compress the fifths wheel into the earth range: sienna through
     // ochre and olive to a single mineral slate-blue
     const fifth = (pc * 7) % 12;
     const hue = 28 + (fifth / 11) * 195 + hueOff * 0.4;
-    const l = 0.52 + Math.sin(seed * 12.9898) * 0.06 - (1 - quality) * 0.05
-            + (hue > 60 && hue < 110 ? 0.1 : 0);
-    const c = (0.085 + Math.sin(seed * 78.233) * 0.015) * (0.8 + quality * 0.2);
+    const l = 0.5 + Math.sin(seed * 12.9898) * 0.11 - (1 - quality) * 0.05
+            + (hue > 55 && hue < 120 ? 0.15 : 0);
+    const c = (0.098 + Math.sin(seed * 78.233) * 0.018) * (0.8 + quality * 0.2);
     return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${hue.toFixed(1)} / ${alpha.toFixed(3)})`;
   },
   edge(pc, alpha) {
