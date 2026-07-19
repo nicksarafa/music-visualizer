@@ -152,3 +152,14 @@ The new bar: composition changes must keep their origin legible, reach all four 
 and preserve silence as visible space. Material changes must remain recognizable when paired with
 at least two different movements; material may alter texture, blend, and atmosphere, but not spatial
 placement.
+
+## Matter-driven movement expansion (54)
+
+| iter | what | verdict | 1 breath | 2 flow | 3 canvas | 4 color | 5 paint | 6 respond | 7 chrome | notes |
+|------|------|---------|----------|--------|----------|---------|---------|-----------|----------|-------|
+| 54 | liquid, sacred geometry, sand, and wood | runtime pass; visual pending | — | — | — | — | — | — | — | both local WAVs drove all four solvers without runtime errors; screenshot scoring blocked because this session exposed no browser backend |
+
+`node tests/movement-smoke.cjs` extracted fourteen pitch-class events from each local WAV and
+verified pressure/viscosity particles, star-rosette gestures, colliding grains, and branching growth.
+This is a code-path and responsiveness smoke test only. Do not convert the dashes above into scores
+until all four movements have been judged from standard-protocol screenshots.

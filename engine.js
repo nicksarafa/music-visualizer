@@ -16,6 +16,22 @@ let SKIN = null;   // active skin object
 // pigment behaves; a composition decides how music travels from the center.
 const COMPOSITIONS = [
   {
+    id: "liquid-bloom", label: "liquid bloom", gesture: "liquid",
+    note: "pressure-soft droplets push, gather, and curl outward from the center",
+  },
+  {
+    id: "sacred-rose", label: "sacred rose", gesture: "sacred",
+    note: "harmonic star-rosettes construct themselves in luminous symmetry",
+  },
+  {
+    id: "living-sand", label: "living sand", gesture: "sand",
+    note: "colliding grains erupt from the center, arc, and settle into time",
+  },
+  {
+    id: "vitruvian-grove", label: "vitruvian grove", gesture: "wood",
+    note: "space-seeking branches grow without gravity in every direction",
+  },
+  {
     id: "radiant-heart", label: "radiant heart", gesture: "ray",
     note: "clear rays open from a small pulse into the edges",
   },
@@ -142,6 +158,11 @@ function resetCompositionState() {
   compositionState.energyEma = 0;
   compositionState.lastScore = null;
   flow.a = 0;
+  liquidParticles.length = 0;
+  sandParticles.length = 0;
+  woodTips.length = 0;
+  woodNodes.length = 0;
+  sandSurface.length = 0;
 }
 
 function setComposition(id, { keepPaint = false } = {}) {
@@ -197,6 +218,8 @@ function clearPainting() {
   pctx.clearRect(0, 0, W, H);
   blooms.length = 0; drips.length = 0; glosses.length = 0;
   threads.length = 0; gestures.length = 0; originPulses.length = 0;
+  liquidParticles.length = 0; sandParticles.length = 0;
+  woodTips.length = 0; woodNodes.length = 0; sandSurface.length = 0;
   recentPoints.length = 0;
   resetCompositionState();
 }
@@ -393,6 +416,42 @@ function compositionPlacement(pcs, score) {
   let nx = 0, ny = 0, angle = pitchA;
 
   switch (COMPOSITION.id) {
+    case "liquid-bloom": {
+      // Slow paired vortices keep successive phrases near enough to interact,
+      // while the irrational turn prevents the flow from becoming a wheel.
+      const t = n * golden * 0.54 + pitchA * 0.22;
+      const lobe = Math.sin(n * 0.73 + root) * 0.16;
+      const r = 0.2 + 0.75 * Math.sqrt(((n * 11) % 29) / 28);
+      angle = t + lobe;
+      nx = Math.cos(angle) * r;
+      ny = Math.sin(angle) * r * (0.78 + v * 0.22);
+      break;
+    }
+    case "sacred-rose": {
+      const order = [6, 8, 10, 12][root % 4];
+      const spoke = n % order;
+      angle = pitchA * 0.18 + spoke * Math.PI * 2 / order;
+      const tier = 0.34 + (Math.floor(n / order) % 3) * 0.3;
+      nx = Math.cos(angle) * tier;
+      ny = Math.sin(angle) * tier;
+      break;
+    }
+    case "living-sand": {
+      // A narrow fountain heading fans into a different quadrant each event;
+      // gravity is applied later by the grain solver, not baked into placement.
+      angle = pitchA + n * golden * 0.38 + (u - 0.5) * 0.34;
+      const r = 0.58 + v * 0.38;
+      nx = Math.cos(angle) * r;
+      ny = Math.sin(angle) * r;
+      break;
+    }
+    case "vitruvian-grove": {
+      angle = pitchA * 0.35 + n * golden;
+      const ring = 0.52 + ((n * 5) % 11) / 10 * 0.44;
+      nx = Math.cos(angle) * ring;
+      ny = Math.sin(angle) * ring;
+      break;
+    }
     case "golden-garden": {
       angle = n * golden + root * 0.055;
       const r = 0.16 + 0.82 * Math.sqrt(((n * 5) % 23) / 22);
@@ -465,7 +524,7 @@ function compositionPlacement(pcs, score) {
   const margin = 0.045;
   const x = Math.max(W * margin, Math.min(W * (1 - margin), W * 0.5 + nx * W * 0.475));
   const y = Math.max(H * margin, Math.min(H * (1 - margin), H * 0.5 + ny * H * 0.475));
-  return { x, y, angle, gesture: COMPOSITION.gesture, seed: u, score };
+  return { x, y, angle, gesture: COMPOSITION.gesture, seed: u, score, pc: root };
 }
 
 function samplePath(fn, steps = 34) {
@@ -488,6 +547,72 @@ function buildGesturePaths(target) {
   });
 
   switch (target.gesture) {
+    case "liquid": {
+      // Three neighboring streamlines make a broad current. Their phase and
+      // amplitude differ enough to braid, while all still read center-first.
+      paths.push(line(bend * 0.82, 1.35));
+      paths.push(line(-bend * 0.58, 1.8));
+      paths.push(line(bend * 0.31, 2.45));
+      break;
+    }
+    case "sacred": {
+      const order = [6, 8, 10, 12][target.pc % 4];
+      const radius = Math.max(Math.min(W, H) * 0.13, Math.min(len, Math.min(W, H) * 0.46));
+      const base = target.angle + target.seed * 0.18;
+      const circle = (r, phase = 0) => samplePath(t => {
+        const a = base + phase + t * Math.PI * 2;
+        return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r };
+      }, 72);
+      const rosette = (r, inner, phase = 0) => {
+        const path = [];
+        for (let i = 0; i <= order * 2; i++) {
+          const a = base + phase + i * Math.PI / order;
+          const rr = i % 2 ? r * inner : r;
+          path.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr });
+        }
+        return path;
+      };
+      paths.push(circle(radius));
+      paths.push(circle(radius * 0.62, Math.PI / order));
+      paths.push(rosette(radius * 0.96, 0.44));
+      paths.push(rosette(radius * 0.6, 0.38, Math.PI / order));
+      for (let i = 0; i < order; i += 2) {
+        const a = base + i * Math.PI * 2 / order;
+        paths.push([
+          { x: cx + Math.cos(a) * radius * 0.16, y: cy + Math.sin(a) * radius * 0.16 },
+          { x: cx + Math.cos(a) * radius, y: cy + Math.sin(a) * radius },
+        ]);
+      }
+      break;
+    }
+    case "sand": {
+      for (let lane = -2; lane <= 2; lane++) {
+        paths.push(samplePath(t => {
+          const fan = lane * bend * 0.18 * t;
+          const fall = Math.sin(Math.PI * t) * bend * (0.16 + Math.abs(lane) * 0.04);
+          return {
+            x: cx + dx * t + px * fan,
+            y: cy + dy * t + py * fan + fall,
+          };
+        }, 26));
+      }
+      break;
+    }
+    case "wood": {
+      const trunk = line(bend * 0.12, 0.55);
+      paths.push(trunk);
+      for (const q of [0.38, 0.62]) {
+        const fork = trunk[Math.floor((trunk.length - 1) * q)];
+        for (const side of [-1, 1]) {
+          const remain = 1 - q;
+          paths.push(samplePath(t => ({
+            x: fork.x + dx * remain * t + px * side * bend * (0.45 + q * 0.32) * Math.sin(Math.PI * t * 0.72),
+            y: fork.y + dy * remain * t + py * side * bend * (0.45 + q * 0.32) * Math.sin(Math.PI * t * 0.72),
+          }), 22));
+        }
+      }
+      break;
+    }
     case "petal":
       paths.push(samplePath(t => ({
         x: cx + dx * t + px * Math.sin(Math.PI * t) * bend,
@@ -574,23 +699,333 @@ const glosses = [];
 const threads = [];
 const gestures = [];
 const originPulses = [];
+const liquidParticles = [];
+const sandParticles = [];
+const sandSurface = [];
+const woodTips = [];
+const woodNodes = [];
 const recentPoints = [];
 const flow = { a: 0 };
+
+// These movement solvers deliberately stay material-agnostic: they borrow the
+// active skin's color functions, but own only position, momentum, and growth.
+
+function spawnLiquidParticles(target, pc, level) {
+  const cx = W * 0.5, cy = H * 0.5;
+  const minD = Math.min(W, H);
+  const count = Math.round(12 + target.score.total * 10 + level * 8);
+  const now = performance.now();
+  for (let i = 0; i < count; i++) {
+    const spread = (i - (count - 1) * 0.5) / Math.max(1, count - 1);
+    const a = target.angle + spread * 0.5 + gauss() * 0.075;
+    const speed = minD * (0.075 + level * 0.1 + Math.random() * 0.035);
+    const seedR = Math.random() * minD * 0.018;
+    liquidParticles.push({
+      x: cx + Math.cos(a) * seedR,
+      y: cy + Math.sin(a) * seedR,
+      px: cx, py: cy,
+      vx: Math.cos(a) * speed - Math.sin(a) * speed * spread * 0.18,
+      vy: Math.sin(a) * speed + Math.cos(a) * speed * spread * 0.18,
+      r: (1.8 + Math.random() * 2.7 + target.score.impact * 1.2) * DPR,
+      pc, seed: target.seed + i * 0.071,
+      energy: target.score.total, born: now,
+      life: 5200 + Math.random() * 2600,
+    });
+  }
+  if (liquidParticles.length > 240) {
+    liquidParticles.splice(0, liquidParticles.length - 240);
+  }
+}
+
+function stepLiquid(now, dt) {
+  if (!liquidParticles.length) return;
+  dt = Math.min(dt, 1 / 30);
+  const h = 28 * DPR;
+  const rest = 6.5 * DPR;
+
+  // A compact SPH-inspired neighborhood pass: close particles repel as
+  // pressure, nearby velocities blend as viscosity, and the outer part of the
+  // kernel adds gentle cohesion. It is intentionally painterly, not a CFD lab.
+  for (let i = 0; i < liquidParticles.length; i++) {
+    const a = liquidParticles[i];
+    for (let j = i + 1; j < liquidParticles.length; j++) {
+      const b = liquidParticles[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= 0.0001 || d2 >= h * h) continue;
+      const d = Math.sqrt(d2);
+      const nx = dx / d, ny = dy / d;
+      const q = 1 - d / h;
+      const pressure = d < rest
+        ? (1 - d / rest) * 230 * DPR
+        : -q * q * 12 * DPR;
+      a.vx -= nx * pressure * dt; a.vy -= ny * pressure * dt;
+      b.vx += nx * pressure * dt; b.vy += ny * pressure * dt;
+      const visc = q * q * 1.9 * dt;
+      const dvx = b.vx - a.vx, dvy = b.vy - a.vy;
+      a.vx += dvx * visc; a.vy += dvy * visc;
+      b.vx -= dvx * visc; b.vy -= dvy * visc;
+    }
+  }
+
+  const cx = W * 0.5, cy = H * 0.5;
+  for (let i = liquidParticles.length - 1; i >= 0; i--) {
+    const p = liquidParticles[i];
+    const age = (now - p.born) / p.life;
+    if (age >= 1) { liquidParticles.splice(i, 1); continue; }
+    p.px = p.x; p.py = p.y;
+    const rx = p.x - cx, ry = p.y - cy;
+    const rd = Math.max(1, Math.hypot(rx, ry));
+    const vortex = Math.sin(p.seed * 17 + now * 0.00055) * 34 * DPR;
+    p.vx += (-ry / rd) * vortex * dt;
+    p.vy += (rx / rd) * vortex * dt;
+    if (age < 0.24) {
+      const lift = (1 - age / 0.24) * 42 * DPR;
+      p.vx += (rx / rd) * lift * dt;
+      p.vy += (ry / rd) * lift * dt;
+    }
+    const damping = Math.pow(0.986, dt * 60);
+    p.vx *= damping; p.vy *= damping;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.x < p.r || p.x > W - p.r) {
+      p.x = Math.max(p.r, Math.min(W - p.r, p.x)); p.vx *= -0.64;
+    }
+    if (p.y < p.r || p.y > H - p.r) {
+      p.y = Math.max(p.r, Math.min(H - p.r, p.y)); p.vy *= -0.64;
+    }
+    const fade = Math.sin(Math.PI * Math.min(1, age));
+    pctx.strokeStyle = pigmentColor(p.pc, 0.018 + fade * 0.028, p.seed);
+    pctx.lineWidth = p.r * (1.5 + p.energy * 0.7);
+    pctx.lineCap = "round";
+    pctx.beginPath(); pctx.moveTo(p.px, p.py); pctx.lineTo(p.x, p.y); pctx.stroke();
+    pctx.fillStyle = pigmentAccent(p.pc, 0.018 + fade * 0.022, p.seed + age);
+    pctx.beginPath(); pctx.arc(p.x, p.y, p.r * 0.72, 0, Math.PI * 2); pctx.fill();
+  }
+}
+
+function spawnSandParticles(target, pc, level) {
+  const cx = W * 0.5, cy = H * 0.5;
+  const minD = Math.min(W, H);
+  const count = Math.round(30 + level * 34 + target.score.total * 22);
+  const now = performance.now();
+  for (let i = 0; i < count; i++) {
+    const a = target.angle + gauss() * (0.15 + (i / count) * 0.2);
+    const speed = minD * (0.13 + level * 0.2) * (0.72 + Math.random() * 0.5);
+    sandParticles.push({
+      x: cx + gauss() * 2 * DPR, y: cy + gauss() * 2 * DPR,
+      px: cx, py: cy,
+      vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+      r: (0.55 + Math.random() * 1.05) * DPR,
+      pc, seed: target.seed + i * 0.037, born: now,
+      life: 5600 + Math.random() * 2600,
+    });
+  }
+  if (sandParticles.length > 820) sandParticles.splice(0, sandParticles.length - 820);
+}
+
+function settleSandGrain(p, col, cell) {
+  p.y = Math.min(H - p.r, sandSurface[col] - p.r);
+  pctx.fillStyle = pigmentColor(p.pc, 0.22, p.seed);
+  pctx.beginPath(); pctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); pctx.fill();
+  pctx.fillStyle = pigmentAccent(p.pc, 0.11, p.seed + 0.4);
+  pctx.beginPath(); pctx.arc(p.x - p.r * 0.25, p.y - p.r * 0.3, p.r * 0.34, 0, Math.PI * 2); pctx.fill();
+  sandSurface[col] = Math.max(H * 0.48, sandSurface[col] - Math.max(p.r * 0.56, cell * 0.11));
+}
+
+function stepSand(now, dt) {
+  if (!sandParticles.length) return;
+  dt = Math.min(dt, 1 / 30);
+  const cell = Math.max(3, 5 * DPR);
+  const cols = Math.ceil(W / cell);
+  if (sandSurface.length !== cols) {
+    sandSurface.length = cols;
+    sandSurface.fill(H - 1.5 * DPR);
+  }
+  const grid = new Map();
+  for (let i = sandParticles.length - 1; i >= 0; i--) {
+    const p = sandParticles[i];
+    const age = (now - p.born) / p.life;
+    if (age >= 1) { sandParticles.splice(i, 1); continue; }
+    p.px = p.x; p.py = p.y;
+    p.vy += 118 * DPR * dt;
+    p.vx += Math.sin(now * 0.0013 + p.seed * 31) * 6 * DPR * dt;
+    p.vx *= Math.pow(0.997, dt * 60);
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.x < p.r || p.x > W - p.r) {
+      p.x = Math.max(p.r, Math.min(W - p.r, p.x)); p.vx *= -0.42;
+    }
+    if (p.y < p.r) { p.y = p.r; p.vy = Math.abs(p.vy) * 0.35; }
+
+    const gx = Math.floor(p.x / cell), gy = Math.floor(p.y / cell);
+    for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+      const q = grid.get(`${gx + ox}:${gy + oy}`);
+      if (!q) continue;
+      const dx = p.x - q.x, dy = p.y - q.y;
+      const minDist = p.r + q.r;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= 0.0001 || d2 >= minDist * minDist) continue;
+      const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+      const push = (minDist - d) * 0.52;
+      p.x += nx * push; p.y += ny * push;
+      const rel = (p.vx - q.vx) * nx + (p.vy - q.vy) * ny;
+      if (rel < 0) { p.vx -= nx * rel * 0.36; p.vy -= ny * rel * 0.36; }
+    }
+    grid.set(`${Math.floor(p.x / cell)}:${Math.floor(p.y / cell)}`, p);
+
+    const col = Math.max(0, Math.min(cols - 1, Math.floor(p.x / cell)));
+    if (p.y + p.r >= sandSurface[col]) {
+      const left = sandSurface[Math.max(0, col - 1)];
+      const right = sandSurface[Math.min(cols - 1, col + 1)];
+      const downhill = left > right ? -1 : 1;
+      const low = Math.max(left, right);
+      if (low - sandSurface[col] > cell * 1.45 && col + downhill >= 0 && col + downhill < cols) {
+        p.x += downhill * cell * 0.7;
+        p.vx = downhill * (16 + Math.abs(p.vx) * 0.22) * DPR;
+        p.vy *= -0.12;
+      } else {
+        settleSandGrain(p, col, cell);
+        sandParticles.splice(i, 1);
+        continue;
+      }
+    }
+    pctx.fillStyle = pigmentColor(p.pc, 0.07, p.seed + age);
+    pctx.beginPath(); pctx.arc(p.x, p.y, p.r * 0.72, 0, Math.PI * 2); pctx.fill();
+  }
+}
+
+function angleDelta(to, from) {
+  return Math.atan2(Math.sin(to - from), Math.cos(to - from));
+}
+
+function spawnWoodGrowth(target, pc) {
+  const now = performance.now();
+  const arms = compositionState.event < 3 ? 4 : 2;
+  for (let i = 0; i < arms; i++) {
+    const opposing = i % 2 ? Math.PI : 0;
+    const quarter = Math.floor(i / 2) * Math.PI * 0.5;
+    const a = target.angle + opposing + quarter + gauss() * 0.045;
+    woodTips.push({
+      x: W * 0.5, y: H * 0.5, angle: a, targetAngle: a,
+      width: (3.2 + target.score.total * 3.8) * DPR,
+      step: (3.8 + target.score.impact * 2.6) * DPR,
+      energy: Math.round(38 + target.score.total * 42),
+      pc, seed: target.seed + i * 0.193, depth: 0, ticks: 0,
+      branch: `${compositionState.event}:${i}:${target.seed}`,
+      nextAt: now + i * 42,
+    });
+  }
+  if (woodTips.length > 84) woodTips.splice(0, woodTips.length - 84);
+}
+
+function finishWoodTip(tip) {
+  const r = Math.max(1.2 * DPR, tip.width * 0.72);
+  pctx.save();
+  pctx.translate(tip.x, tip.y); pctx.rotate(tip.angle);
+  pctx.fillStyle = pigmentAccent(tip.pc, 0.17, tip.seed + tip.ticks);
+  pctx.beginPath(); pctx.ellipse(r * 0.35, 0, r, r * 0.42, 0, 0, Math.PI * 2); pctx.fill();
+  pctx.restore();
+}
+
+function stepWood(now) {
+  for (let i = woodTips.length - 1; i >= 0; i--) {
+    const tip = woodTips[i];
+    if (now < tip.nextAt) continue;
+    tip.nextAt = now + 24 + tip.depth * 4;
+    const oldX = tip.x, oldY = tip.y;
+    let repelX = 0, repelY = 0;
+    const start = Math.max(0, woodNodes.length - 260);
+    for (let n = start; n < woodNodes.length; n++) {
+      const node = woodNodes[n];
+      if (node.branch === tip.branch && tip.ticks - node.tick < 5) continue;
+      const dx = tip.x - node.x, dy = tip.y - node.y;
+      const d2 = dx * dx + dy * dy;
+      const reach = 25 * DPR;
+      if (d2 > tip.step * tip.step * 2.2 && d2 < reach * reach) {
+        const inv = 1 / Math.max(1, d2);
+        repelX += dx * inv; repelY += dy * inv;
+      }
+    }
+    const repelAngle = Math.atan2(repelY, repelX);
+    const repelWeight = Math.min(0.28, Math.hypot(repelX, repelY) * 130 * DPR);
+    tip.angle += angleDelta(tip.targetAngle, tip.angle) * 0.045;
+    if (repelWeight > 0.01) tip.angle += angleDelta(repelAngle, tip.angle) * repelWeight;
+    tip.angle += (hash01(Math.floor(tip.seed * 1e9), tip.ticks, tip.depth) - 0.5) * 0.18;
+    tip.x += Math.cos(tip.angle) * tip.step;
+    tip.y += Math.sin(tip.angle) * tip.step;
+    tip.ticks++; tip.energy--; tip.width *= 0.986;
+
+    pctx.strokeStyle = pigmentColor(tip.pc, 0.14, tip.seed + tip.ticks * 0.01);
+    pctx.lineWidth = Math.max(0.7 * DPR, tip.width);
+    pctx.lineCap = "round";
+    pctx.beginPath(); pctx.moveTo(oldX, oldY); pctx.lineTo(tip.x, tip.y); pctx.stroke();
+    pctx.strokeStyle = pigmentAccent(tip.pc, 0.055, tip.seed + 0.5);
+    pctx.lineWidth = Math.max(0.35 * DPR, tip.width * 0.22);
+    pctx.beginPath(); pctx.moveTo(oldX, oldY); pctx.lineTo(tip.x, tip.y); pctx.stroke();
+    woodNodes.push({ x: tip.x, y: tip.y, branch: tip.branch, tick: tip.ticks });
+    if (woodNodes.length > 1400) woodNodes.splice(0, woodNodes.length - 1400);
+
+    const splitEvery = 11 + tip.depth * 4;
+    const split = tip.depth < 4 && tip.energy > 12 && tip.ticks % splitEvery === 0 &&
+      hash01(Math.floor(tip.seed * 1e8), tip.ticks, tip.depth) > 0.34;
+    if (split && woodTips.length < 82) {
+      const turn = 0.38 + hash01(Math.floor(tip.seed * 1e7), tip.ticks, 9) * 0.34;
+      const child = {
+        ...tip,
+        angle: tip.angle + turn,
+        targetAngle: tip.targetAngle + turn * 1.4,
+        width: tip.width * 0.72,
+        energy: Math.round(tip.energy * 0.68),
+        depth: tip.depth + 1,
+        seed: tip.seed + 0.271 + tip.depth * 0.13,
+        branch: `${tip.branch}.${tip.ticks}`,
+        ticks: 0,
+        nextAt: now + 36,
+      };
+      woodTips.push(child);
+      tip.angle -= turn * 0.36;
+      tip.targetAngle -= turn * 0.52;
+    }
+    const out = tip.x < -tip.step || tip.x > W + tip.step || tip.y < -tip.step || tip.y > H + tip.step;
+    if (tip.energy <= 0 || tip.width < 0.75 * DPR || out) {
+      if (!out) finishWoodTip(tip);
+      woodTips.splice(i, 1);
+    }
+  }
+}
+
+function spawnSpecialMovement(target, pc, level) {
+  switch (target.gesture) {
+    case "liquid": spawnLiquidParticles(target, pc, level); break;
+    case "sand": spawnSandParticles(target, pc, level); break;
+    case "wood": spawnWoodGrowth(target, pc); break;
+  }
+}
+
+function stepSpecialMovements(now, dt) {
+  stepLiquid(now, dt);
+  stepSand(now, dt);
+  stepWood(now);
+}
 
 function spawnCompositionGesture(target, pc) {
   const now = performance.now();
   const paths = buildGesturePaths(target);
   paths.forEach((path, i) => {
+    const quiet = target.gesture === "sand" || target.gesture === "wood";
+    const precise = target.gesture === "sacred";
     gestures.push({
       path, pc, seed: target.seed + i * 0.17,
-      alpha: Math.min(0.34, P("threadAlpha") * (0.38 + target.score.total * 0.42)),
-      width: (0.9 + target.score.impact * 2.2) * DPR * (i ? 0.68 : 1),
+      alpha: Math.min(
+        precise ? 0.28 : 0.34,
+        P("threadAlpha") * (quiet ? 0.2 : 0.38 + target.score.total * 0.42),
+      ),
+      width: (0.9 + target.score.impact * (precise ? 1.4 : 2.2)) * DPR * (i ? 0.68 : 1),
       born: now + i * 55,
-      dur: 650 + path.length * 10 + (1 - target.score.impact) * 420,
+      dur: (precise ? 900 : 650) + path.length * 10 + (1 - target.score.impact) * 420,
       drawn: 0,
     });
   });
-  if (gestures.length > 24) gestures.splice(0, gestures.length - 24);
+  if (gestures.length > 72) gestures.splice(0, gestures.length - 72);
   const seedAngle = (pc / 12) * Math.PI * 2 + compositionState.event * 0.21;
   const seedRadius = Math.min(W, H) * (0.008 + target.score.total * 0.012);
   const seedX = W * 0.5 + Math.cos(seedAngle) * seedRadius;
@@ -606,7 +1041,10 @@ function spawnCompositionGesture(target, pc) {
     );
     pctx.fill();
   }
-  originPulses.push({ pc, seed: target.seed, score: target.score.total, born: now, life: 1750 });
+  originPulses.push({
+    pc, seed: target.seed, score: target.score.total, gesture: target.gesture,
+    order: [6, 8, 10, 12][pc % 4], born: now, life: target.gesture === "sacred" ? 2400 : 1750,
+  });
   if (originPulses.length > 8) originPulses.shift();
   return paths;
 }
@@ -713,33 +1151,55 @@ function spawnStrike(pcs, level) {
   flow.a = target.angle + gauss() * 0.14;
   if (P("leanMode") === "vertical") flow.a = Math.PI / 2 + gauss() * 0.12;
   const gesturePaths = spawnCompositionGesture(target, pcs[0].pc);
+  spawnSpecialMovement(target, pcs[0].pc, level);
   spawnThreads(x, y, pcs[0].pc);
   rememberPoint(x, y, pcs[0].pc);
 
+  const movementScale = target.gesture === "sand" ? 0.42
+    : target.gesture === "wood" ? 0.52
+    : target.gesture === "sacred" ? 0.64
+    : target.gesture === "liquid" ? 0.76 : 1;
   const sizeBase = (0.03 + ctl.size * 0.065) * minD *
     (0.68 + Math.random() * 0.48) * P("sizeMul") * (0.78 + expression.total * 0.28);
+  const scaledSize = sizeBase * movementScale;
   const total = pcs.reduce((s, p) => s + p.w, 0) || 1;
 
   // Small traveling stains make the gesture feel painted through space,
   // rather than a wire connecting isolated stamps. They stay translucent
   // and dry so the center-to-edge route remains visible without clutter.
-  const echoCount = expression.total > 0.68 ? 2 : 1;
+  const echoCount = target.gesture === "sand" || target.gesture === "wood"
+    ? 0 : expression.total > 0.68 ? 2 : 1;
   for (let i = 0; i < echoCount; i++) {
     const path = gesturePaths[i % gesturePaths.length];
     const q = 0.34 + (i / Math.max(1, echoCount - 1)) * 0.32;
     const point = path[Math.min(path.length - 1, Math.floor(q * path.length))];
     spawnBloom(
-      point.x, point.y, sizeBase * (0.19 + expression.total * 0.07),
+      point.x, point.y, scaledSize * (0.19 + expression.total * 0.07),
       root, level * 0.7, 110 + i * 120, quality,
       { alphaMul: 0.34, layerMul: 0.48, quiet: true },
     );
   }
 
+  if (target.gesture === "sacred") {
+    const order = [6, 8, 10, 12][root % 4];
+    const jewelR = minD * (0.085 + expression.total * 0.055);
+    for (let i = 0; i < order; i += 2) {
+      const a = target.angle + i * Math.PI * 2 / order;
+      const tone = pcs[(i / 2) % pcs.length].pc;
+      spawnBloom(
+        W * 0.5 + Math.cos(a) * jewelR,
+        H * 0.5 + Math.sin(a) * jewelR,
+        scaledSize * 0.12, tone, level * 0.72, 260 + i * 24, quality,
+        { alphaMul: 0.42, layerMul: 0.42, quiet: true },
+      );
+    }
+  }
+
   pcs.forEach((p, i) => {
     const share = p.w / total;
-    const r = sizeBase * (i === 0 ? 0.95 : 0.4 + share * 0.45) * (0.75 + level * 0.5);
+    const r = scaledSize * (i === 0 ? 0.95 : 0.4 + share * 0.45) * (0.75 + level * 0.5);
     const a = Math.random() * Math.PI * 2;
-    const d = i === 0 ? 0 : sizeBase * (0.5 + Math.random() * 0.35);
+    const d = i === 0 ? 0 : scaledSize * (0.5 + Math.random() * 0.35);
     spawnBloom(x + Math.cos(a) * d, y + Math.sin(a) * d, r, p.pc, level, i * 80, quality);
   });
 }
@@ -967,9 +1427,65 @@ function stepGloss(now) {
     const alpha = Math.sin(Math.PI * t) * (0.055 + pulse.score * 0.07);
     wctx.strokeStyle = pigmentColor(pulse.pc, alpha, pulse.seed);
     wctx.lineWidth = (1.1 + pulse.score * 1.8) * DPR * (1 - t * 0.45);
-    wctx.beginPath();
-    wctx.ellipse(W * 0.5, H * 0.5, rx, ry, 0, 0, Math.PI * 2);
-    wctx.stroke();
+    wctx.save();
+    if (pulse.gesture === "sacred") {
+      const r = Math.min(rx, ry);
+      wctx.translate(W * 0.5, H * 0.5);
+      wctx.rotate(pulse.seed * 0.3 + t * 0.22);
+      wctx.beginPath();
+      for (let p = 0; p <= pulse.order * 2; p++) {
+        const a = p * Math.PI / pulse.order;
+        const rr = p % 2 ? r * 0.46 : r;
+        const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+        if (!p) wctx.moveTo(x, y); else wctx.lineTo(x, y);
+      }
+      wctx.stroke();
+      wctx.globalAlpha = 0.55;
+      wctx.beginPath(); wctx.arc(0, 0, r * 0.64, 0, Math.PI * 2); wctx.stroke();
+    } else if (pulse.gesture === "liquid") {
+      for (let l = -1; l <= 1; l++) {
+        wctx.beginPath();
+        wctx.ellipse(
+          W * 0.5 + l * rx * 0.025, H * 0.5 - l * ry * 0.018,
+          rx * (1 - Math.abs(l) * 0.035), ry * (0.88 + Math.abs(l) * 0.055),
+          l * 0.045 + Math.sin(pulse.seed * 9) * 0.025, 0, Math.PI * 2,
+        );
+        wctx.stroke();
+      }
+    } else if (pulse.gesture === "sand") {
+      wctx.setLineDash([1.2 * DPR, (3.5 + pulse.score * 3) * DPR]);
+      wctx.lineCap = "round";
+      wctx.beginPath();
+      wctx.ellipse(W * 0.5, H * 0.5, rx, ry, 0, 0, Math.PI * 2);
+      wctx.stroke();
+    } else if (pulse.gesture === "wood") {
+      wctx.beginPath();
+      const points = 18;
+      for (let p = 0; p <= points; p++) {
+        const a = p * Math.PI * 2 / points;
+        const rough = 0.9 + hash01(Math.floor(pulse.seed * 1e7), p, 4) * 0.16;
+        const x = W * 0.5 + Math.cos(a) * rx * rough;
+        const y = H * 0.5 + Math.sin(a) * ry * rough;
+        if (!p) wctx.moveTo(x, y); else wctx.lineTo(x, y);
+      }
+      wctx.stroke();
+    } else {
+      wctx.beginPath();
+      wctx.ellipse(W * 0.5, H * 0.5, rx, ry, 0, 0, Math.PI * 2);
+      wctx.stroke();
+    }
+    wctx.restore();
+  }
+  if (liquidParticles.length) {
+    for (let i = 0; i < liquidParticles.length; i += 4) {
+      const p = liquidParticles[i];
+      const age = Math.min(1, (now - p.born) / p.life);
+      const alpha = Math.sin(Math.PI * age) * 0.13;
+      wctx.fillStyle = `oklch(1 0 0 / ${alpha.toFixed(3)})`;
+      wctx.beginPath();
+      wctx.arc(p.x - p.r * 0.32, p.y - p.r * 0.36, Math.max(0.6 * DPR, p.r * 0.18), 0, Math.PI * 2);
+      wctx.fill();
+    }
   }
 }
 
@@ -1200,6 +1716,7 @@ function frame(now) {
   if (demo.on) scheduleDemo();
   analyse(now);
   stepGestures(now);
+  stepSpecialMovements(now, Math.min(raw, 1 / 20));
   stepBlooms(now);
   stepThreads(now);
   let remaining = Math.min(raw, 1.5);
@@ -1382,7 +1899,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
 /* debug handle for automated visual testing */
 window.PIG = {
-  spawnStrike, spawnBloom, blooms, drips, glosses, threads, gestures, ctl,
+  spawnStrike, spawnBloom, blooms, drips, glosses, threads, gestures,
+  liquidParticles, sandParticles, woodTips, woodNodes, ctl,
   score: () => compositionState.lastScore,
   composition: () => COMPOSITION,
   setComposition,
@@ -1393,12 +1911,23 @@ window.PIG = {
     while (vnow < end) {
       vnow += 1000 / 60;
       stepGestures(vnow);
+      stepSpecialMovements(vnow, 1 / 60);
       stepBlooms(vnow);
       stepThreads(vnow);
       stepDrips(vnow, 1 / 60);
       stepFade(1 / 60);
     }
     stepGloss(performance.now());
+  },
+  movementStats() {
+    return {
+      id: COMPOSITION.id,
+      gestures: gestures.length,
+      liquid: liquidParticles.length,
+      sand: sandParticles.length,
+      woodTips: woodTips.length,
+      woodNodes: woodNodes.length,
+    };
   },
   async playUrl(url, volume = 0.35) {
     ensureCtx();
@@ -1428,6 +1957,7 @@ window.PIG = {
       analyse(now);
       if (before() > n0) spawns++;
       stepGestures(now);
+      stepSpecialMovements(now, 1 / 30);
       stepBlooms(now);
       stepThreads(now);
       stepDrips(now, 1 / 30);

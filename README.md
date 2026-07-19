@@ -15,7 +15,14 @@ Then open http://localhost:8477 in Chrome, click **begin listening**, and grant 
 
 ## Movements and paint
 
-The panel separates **movement** from **paint**. Ten center-origin movements decide where and how a phrase crosses the full canvas; the paint dropdown changes its material world. See `ART_DIRECTION.md` for the movement ideas and expression score.
+The panel separates **movement** from **paint**. Fourteen center-origin movements decide where and how a phrase crosses the full canvas; the paint dropdown changes its material world. See `ART_DIRECTION.md` for the movement ideas and expression score.
+
+The first four movement choices are matter-driven worlds:
+
+- **liquid bloom** — pressure, viscosity, cohesion, and vortices make neighboring droplets push and braid
+- **sacred rose** — pitch chooses the order of an animated star-rosette and its radial construction
+- **living sand** — hundreds of colliding grains erupt from the origin, fall, roll, and settle at an angle of repose
+- **vitruvian grove** — branching growth tips compete for open space and spread without gravity in every direction
 
 Each paint skin is a small file in `skins/` registered with `PIGMENT.registerSkin()`: palette, paper, blend mode, and physics character.
 
@@ -55,4 +62,4 @@ To make a new skin, copy any file in `skins/`, change the name and values, and a
 - **Paint** uses recursive deformed polygons, radial spray gradients, oil-like ridges, or stippled dots depending on the selected skin.
 - **Controls** live in a slide-away right panel: source, sensitivity, paint size, bleed, drip, fade, palette rotation, clear, and save (exports the painting as PNG).
 
-Debug/test hooks live on `window.PIG` (spawn strikes programmatically, simulate painting time synchronously).
+Debug/test hooks live on `window.PIG` (spawn strikes programmatically, simulate painting time synchronously, and inspect movement particle counts). Run `node tests/movement-smoke.cjs` to drive the four matter systems with pitch-class events extracted from both local evaluation tracks.
