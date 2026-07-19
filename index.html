@@ -229,6 +229,10 @@
     <input type="range" id="c-drip" min="0" max="100" value="55">
   </div>
   <div class="ctl">
+    <label><b>threads</b><span id="v-thread"></span></label>
+    <input type="range" id="c-thread" min="0" max="100" value="40">
+  </div>
+  <div class="ctl">
     <label><b>fade</b><span id="v-fade"></span></label>
     <input type="range" id="c-fade" min="0" max="100" value="0">
   </div>
@@ -302,13 +306,14 @@ resize();
 /* ---------------- controls ---------------- */
 
 const ctl = {
-  sens: 0.55, size: 0.5, bleed: 0.5, drip: 0.55, fade: 0, hue: 0,
+  sens: 0.55, size: 0.5, bleed: 0.5, drip: 0.55, thread: 0.4, fade: 0, hue: 0,
 };
 const fmt = {
   sens:  v => v < 0.33 ? "calm" : v < 0.66 ? "easy" : "eager",
   size:  v => v < 0.33 ? "small" : v < 0.66 ? "medium" : "bold",
   bleed: v => v < 0.33 ? "tight" : v < 0.66 ? "soft" : "wide",
   drip:  v => v < 0.15 ? "none" : v < 0.5 ? "slow" : v < 0.8 ? "steady" : "runny",
+  thread: v => v < 0.05 ? "none" : v < 0.4 ? "few" : v < 0.75 ? "some" : "many",
   fade:  v => v < 0.05 ? "never" : v < 0.5 ? "slow" : "quick",
   hue:   v => v === 0 ? "true" : "+" + Math.round(v) + "°",
 };
@@ -326,6 +331,7 @@ bindSlider("sens", "sens");
 bindSlider("size", "size");
 bindSlider("bleed", "bleed");
 bindSlider("drip", "drip");
+bindSlider("thread", "thread");
 bindSlider("fade", "fade");
 bindSlider("hue", "hue", 1);
 
@@ -372,7 +378,7 @@ function basePolygon(r) {
   const n = 14, pts = [];
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
-    const rr = r * (0.85 + Math.random() * 0.3);
+    const rr = r * (0.88 + Math.random() * 0.24);
     pts.push({ x: Math.cos(a) * rr, y: Math.sin(a) * rr, v: 0.3 + Math.random() * 0.7 });
   }
   return pts;
@@ -407,7 +413,79 @@ function tracePoly(ctx, pts, x, y, s) {
 const blooms = [];   // animating washes
 const drips = [];    // descending runs
 const glosses = [];  // wet specular highlights
-let lastStrikeX = -1e5, lastStrikeY = -1e5;
+
+// each strike pops up somewhere new on the full canvas; washes stretch
+// along a random direction per strike
+const flow = { a: 0 };
+const threads = [];        // animated connecting lines between paint
+const recentPoints = [];   // where recent paint landed
+
+function rememberPoint(x, y, pc) {
+  recentPoints.push({ x, y, pc });
+  if (recentPoints.length > 14) recentPoints.shift();
+}
+
+function spawnThreads(x, y, pc) {
+  if (ctl.thread < 0.05 || recentPoints.length === 0 || threads.length > 6) return;
+  const minD = Math.min(W, H);
+  let want = (Math.random() < ctl.thread ? 1 : 0)
+           + (Math.random() < ctl.thread * 0.55 ? 1 : 0);
+  const pool = [...recentPoints].sort(() => Math.random() - 0.5);
+  for (const p of pool) {
+    if (!want) break;
+    const dist = Math.hypot(p.x - x, p.y - y);
+    if (dist < minD * 0.08 || dist > minD * (0.3 + ctl.thread * 0.45)) continue;
+    // a wet thread sags: quadratic curve with a downward-bowed midpoint
+    const sag = dist * (0.10 + Math.random() * 0.14);
+    threads.push({
+      x0: x, y0: y, x1: p.x, y1: p.y,
+      cx: (x + p.x) / 2 + gauss() * dist * 0.08,
+      cy: (y + p.y) / 2 + sag,
+      pc, seed: Math.random(),
+      w: (1.3 + Math.random() * 1.3) * DPR,
+      born: performance.now() + 250,
+      dur: 900 + Math.random() * 700,
+      p: 0,
+    });
+    want--;
+  }
+}
+
+function stepThreads(now) {
+  for (let i = threads.length - 1; i >= 0; i--) {
+    const th = threads[i];
+    const t = (now - th.born) / th.dur;
+    if (t < 0) continue;
+    const target = Math.min(1, t);
+    // wait until there is a real segment to draw, so the line stays unbroken
+    if (target - th.p < 0.03 && target < 1) continue;
+    pctx.strokeStyle = pigmentColor(th.pc, 0.30, th.seed);
+    pctx.lineWidth = th.w;
+    pctx.lineCap = "round";
+    pctx.beginPath();
+    const bez = q => {
+      const u = 1 - q;
+      return [u * u * th.x0 + 2 * u * q * th.cx + q * q * th.x1,
+              u * u * th.y0 + 2 * u * q * th.cy + q * q * th.y1];
+    };
+    const [sx, sy] = bez(th.p);
+    pctx.moveTo(sx, sy);
+    for (let p = th.p + 0.02; p < target; p += 0.02) pctx.lineTo(...bez(p));
+    pctx.lineTo(...bez(target));
+    pctx.stroke();
+    th.p = target;
+    if (th.p >= 1) {
+      // small pigment nodes anchor the thread at both ends
+      for (const [nx, ny] of [[th.x0, th.y0], [th.x1, th.y1]]) {
+        pctx.fillStyle = pigmentColor(th.pc, 0.22, th.seed + nx);
+        pctx.beginPath();
+        pctx.arc(nx, ny, th.w * (1.6 + Math.random() * 0.8), 0, Math.PI * 2);
+        pctx.fill();
+      }
+      threads.splice(i, 1);
+    }
+  }
+}
 
 function spawnStrike(pcs, level) {
   // pcs: [{pc, w}] sorted by weight; level 0..1 loudness
@@ -417,20 +495,22 @@ function spawnStrike(pcs, level) {
   const hasMaj3 = pcs.some(p => p.pc === (root + 4) % 12);
   const quality = hasMin3 && !hasMaj3 ? 0 : 1;
 
-  // center-weighted random placement, nudged away from the previous strike
-  // so successive chords spread across the canvas instead of piling up
-  const margin = 0.12;
+  // paint pops up anywhere on the full canvas, but breathes: it avoids
+  // landing directly on the last few strikes
+  flow.a = Math.random() * Math.PI * 2;
   let x = 0, y = 0;
-  const minDist = Math.min(W, H) * 0.22;
+  const minD = Math.min(W, H);
+  const recent = recentPoints.slice(-4);
   for (let attempt = 0; attempt < 4; attempt++) {
-    x = Math.max(W * margin, Math.min(W * (1 - margin), W * (0.5 + gauss() * 0.2)));
-    y = Math.max(H * margin, Math.min(H * (1 - margin), H * (0.46 + gauss() * 0.17)));
-    const dx = x - lastStrikeX, dy = y - lastStrikeY;
-    if (dx * dx + dy * dy > minDist * minDist) break;
+    x = W * (0.07 + Math.random() * 0.86);
+    y = H * (0.07 + Math.random() * 0.86);
+    if (recent.every(p => Math.hypot(p.x - x, p.y - y) > minD * 0.2)) break;
   }
-  lastStrikeX = x; lastStrikeY = y;
+  spawnThreads(x, y, pcs[0].pc);
+  rememberPoint(x, y, pcs[0].pc);
 
-  const sizeBase = (0.035 + ctl.size * 0.075) * Math.min(W, H);
+  // the current swells and thins like a river: strong per-strike variance
+  const sizeBase = (0.035 + ctl.size * 0.075) * Math.min(W, H) * (0.72 + Math.random() * 0.6);
   const total = pcs.reduce((s, p) => s + p.w, 0) || 1;
 
   pcs.forEach((p, i) => {
@@ -439,23 +519,31 @@ function spawnStrike(pcs, level) {
     const r = sizeBase * (i === 0 ? 0.95 : 0.45 + share * 0.5) * (0.75 + level * 0.5);
     const a = Math.random() * Math.PI * 2;
     const d = i === 0 ? 0 : sizeBase * (0.5 + Math.random() * 0.35);
-    spawnBloom(x + Math.cos(a) * d, y + Math.sin(a) * d, r, p.pc, level, i * 140, quality);
+    spawnBloom(x + Math.cos(a) * d, y + Math.sin(a) * d, r, p.pc, level, i * 80, quality);
   });
 }
 
 function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
   const seed = Math.random();
-  // washes are rarely perfect circles: gentle elliptical bias per bloom
-  const ax = 0.85 + Math.random() * 0.35;
-  const poly = deform(basePolygon(r), r * 0.15, 4)
-    .map(p => ({ x: p.x * ax, y: p.y * (2 - ax) * 0.85, v: p.v }));
+  // washes stretch gently along the direction the flow path is moving,
+  // so the painting reads as one current instead of scattered dots
+  const stretch = 1.25 + Math.random() * 0.5;
+  const ca = Math.cos(flow.a), sa = Math.sin(flow.a);
+  const poly = deform(basePolygon(r), r * 0.12, 4).map(p => {
+    const ex = p.x * stretch, ey = p.y * (0.82 + Math.random() * 0.06);
+    return { x: ex * ca - ey * sa, y: ex * sa + ey * ca, v: p.v };
+  });
   const layers = Math.round(16 + ctl.bleed * 22);
-  blooms.push({
+  const bloom = {
     x, y, r, pc, seed, poly, layers, quality,
     born: performance.now() + delay,
     life: 1400 + ctl.bleed * 900,
     drawn: 0,
-  });
+  };
+  blooms.push(bloom);
+  // the strike lands instantly: stamp the first third of the wash now,
+  // the rest blooms out over the next second
+  if (delay === 0) drawBloomLayers(bloom, Math.ceil(layers * 0.34));
   glosses.push({ x, y, r: r * 0.8, born: performance.now() + delay, life: 7000 });
   // a heavy drop occasionally breaks from the underside and runs
   if (ctl.drip > 0.15 && Math.random() < 0.28 + ctl.drip * 0.35) {
@@ -476,7 +564,7 @@ function drawBloomLayers(b, target) {
   while (b.drawn < target) {
     const s = 0.55 + (b.drawn / b.layers) * 0.5;
     const variant = deform(b.poly.map(p => ({ ...p })), b.r * 0.065, 2);
-    pctx.fillStyle = pigmentColor(b.pc, 0.028 + 0.02 * (1 - b.drawn / b.layers), b.seed + b.drawn, b.quality);
+    pctx.fillStyle = pigmentColor(b.pc, 0.023 + 0.017 * (1 - b.drawn / b.layers), b.seed + b.drawn, b.quality);
     tracePoly(pctx, variant, b.x, b.y, s);
     pctx.fill();
     b.drawn++;
@@ -525,7 +613,9 @@ function stepDrips(now, dt) {
     const speed = (9 + ctl.drip * 30) * DPR;
     const slip = 0.4 + 0.6 * Math.sin(now / 1300 + d.phase) ** 2;
     const dy = speed * slip * dt;
-    const nx = d.x + d.drift * dy + Math.sin(now / 2400 + d.phase * 3) * 0.05 * DPR;
+    const nx = d.x + d.drift * dy
+             + (Math.sin(now / 2400 + d.phase * 3) * 0.07
+              + Math.sin(now / 830 + d.phase * 7) * 0.045) * DPR;
     const ny = d.y + dy;
     // taper only over the last third of the run
     const frac = d.budget / (d.budget0 || (d.budget0 = d.budget));
@@ -703,6 +793,8 @@ let lastSpawn = 0;
 let lastDominantPc = -1;
 let fluxHistory = [];
 let statusFadeTimer = null;
+const smoothChroma = new Float32Array(12);   // EMA over frames: stable harmony only
+const spawnTimes = [];                       // recent strikes, for the calm budget
 
 function analyse(now) {
   if (!analyser || source === "off") return;
@@ -714,7 +806,7 @@ function analyse(now) {
   let sum = 0;
   for (let i = 0; i < timeData.length; i += 4) sum += timeData[i] * timeData[i];
   const rms = Math.sqrt(sum / (timeData.length / 4));
-  const level = Math.min(1, rms * 9);
+  let level = Math.min(1, rms * 9);
 
   const binW = ac.sampleRate / analyser.fftSize;
   const lo = Math.floor(70 / binW), hi = Math.min(Math.floor(1400 / binW), freqData.length - 1);
@@ -742,26 +834,43 @@ function analyse(now) {
   const mean = fluxHistory.reduce((a, b) => a + b, 0) / fluxHistory.length;
   const sd = Math.sqrt(fluxHistory.reduce((a, b) => a + (b - mean) ** 2, 0) / fluxHistory.length);
   const gate = 0.015 + (1 - ctl.sens) * 0.05;      // level gate
-  const thresh = mean + sd * (2.6 - ctl.sens * 1.7);
+  const thresh = mean + sd * (3.0 - ctl.sens * 1.7);
 
-  // dominant pitch classes
+  // dominant pitch classes from the smoothed chroma: transient harmonics
+  // shouldn't get to pick colors, only settled harmony
   let max = 0;
-  for (let i = 0; i < 12; i++) if (chroma[i] > max) max = chroma[i];
+  for (let i = 0; i < 12; i++) {
+    smoothChroma[i] = smoothChroma[i] * 0.86 + chroma[i] * 0.14;
+    if (smoothChroma[i] > max) max = smoothChroma[i];
+  }
   const pcs = [];
   if (max > 0) {
     for (let i = 0; i < 12; i++) {
-      if (chroma[i] > max * 0.35) pcs.push({ pc: i, w: chroma[i] });
+      if (smoothChroma[i] > max * 0.5) pcs.push({ pc: i, w: smoothChroma[i] });
     }
     pcs.sort((a, b) => b.w - a.w);
-    pcs.length = Math.min(pcs.length, 3);   // restraint: at most three hues per strike
+    pcs.length = Math.min(pcs.length, 2);   // restraint: at most two hues per strike
   }
 
   const audible = level > gate;
-  const onset = flux > thresh && audible && now - lastOnset > 180;
+  const onset = flux > thresh && level > gate * 1.3 && now - lastOnset > 420;
   const dominant = pcs.length ? pcs[0].pc : -1;
-  const pcChanged = dominant !== -1 && dominant !== lastDominantPc && audible && now - lastSpawn > 700;
+  const pcChanged = dominant !== -1 && dominant !== lastDominantPc && audible;
+  // sustained pads and held notes keep releasing gentle washes
+  const sustained = audible && pcs.length > 0 && now - lastSpawn > 4200;
 
-  if ((onset || pcChanged) && pcs.length) {
+  // real onsets paint IMMEDIATELY; the gentler triggers are paced and
+  // budgeted so ambient sound can't crowd the canvas
+  const minGap = 2400 - ctl.sens * 1200;
+  const mayStrike = now - lastSpawn > minGap;
+  while (spawnTimes.length && now - spawnTimes[0] > 10000) spawnTimes.shift();
+  const calm = spawnTimes.length < 4;
+
+  if (pcs.length &&
+      ((onset && now - lastSpawn > 160) ||
+       (mayStrike && calm && (pcChanged || sustained)))) {
+    spawnTimes.push(now);
+    if (sustained && !onset && !pcChanged) level *= 0.55;
     lastOnset = onset ? now : lastOnset;
     lastSpawn = now;
     lastDominantPc = dominant;
@@ -785,6 +894,7 @@ function frame(now) {
   if (demo.on) scheduleDemo();
   analyse(now);
   stepBlooms(now);
+  stepThreads(now);
   // substep so drips stay smooth (and correct) across throttled frames;
   // simulate at most 1.5s of catch-up per real frame
   let remaining = Math.min(raw, 1.5);
@@ -812,10 +922,29 @@ window.PIG = {
     while (vnow < end) {
       vnow += 1000 / 60;
       stepBlooms(vnow);
+      stepThreads(vnow);
       stepDrips(vnow, 1 / 60);
       stepFade(1 / 60);
     }
     stepGloss(performance.now());
+  },
+  // play an audio file through the same analyser pipeline (test hook)
+  async playUrl(url, volume = 0.35) {
+    ensureCtx();
+    stopMic(); stopDemo();
+    const buf = await fetch(url).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b));
+    if (this._fileSrc) { try { this._fileSrc.stop(); } catch (e) {} }
+    const s = ac.createBufferSource();
+    s.buffer = buf;
+    s.connect(analyser);
+    const out = ac.createGain();
+    out.gain.value = volume;
+    s.connect(out); out.connect(ac.destination);
+    s.start();
+    this._fileSrc = s;
+    setSource("demo");
+    listeningEl.textContent = "playing file";
+    return buf.duration;
   },
   // synchronously run the LIVE pipeline (audio analysis included) for `ms`,
   // busy-waiting between analysis frames — test-only, blocks the main thread
@@ -830,6 +959,7 @@ window.PIG = {
       analyse(now);
       if (before() > n0) spawns++;
       stepBlooms(now);
+      stepThreads(now);
       stepDrips(now, 1 / 30);
       const until = now + 33;
       while (performance.now() < until) { /* busy-wait */ }
@@ -866,6 +996,7 @@ document.getElementById("srcOff").addEventListener("click", () => {
 document.getElementById("btnClear").addEventListener("click", () => {
   pctx.clearRect(0, 0, W, H);
   blooms.length = 0; drips.length = 0; glosses.length = 0;
+  threads.length = 0; recentPoints.length = 0;
 });
 
 document.getElementById("btnSave").addEventListener("click", () => {
