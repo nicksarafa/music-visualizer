@@ -179,6 +179,10 @@ function pigmentColor(pc, alpha, seed, quality = 1, hueOff = 0) {
 function pigmentEdge(pc, alpha) {
   return (SKIN && SKIN.edge ? SKIN.edge : defaultEdge)(pc, alpha);
 }
+// punctuation marks (drip beads, thread nodes); skins may accent these
+function pigmentAccent(pc, alpha, seed) {
+  return (SKIN && SKIN.accent ? SKIN.accent : pigmentColor)(pc, alpha, seed);
+}
 
 /* ---------------- geometry ---------------- */
 
@@ -287,7 +291,7 @@ function stepThreads(now) {
     if (th.p >= 1) {
       if (P("threadNodes")) {
         for (const [nx, ny] of [[th.x0, th.y0], [th.x1, th.y1]]) {
-          pctx.fillStyle = pigmentColor(th.pc, 0.22, th.seed + nx);
+          pctx.fillStyle = pigmentAccent(th.pc, 0.22, th.seed + nx);
           pctx.beginPath();
           pctx.arc(nx, ny, th.w * (1.6 + Math.random() * 0.8), 0, Math.PI * 2);
           pctx.fill();
@@ -430,7 +434,7 @@ function stepDrips(now, dt) {
     if (d.budget <= 0 || d.w < 1.2 * DPR) {
       if (P("dripBead")) {
         for (let k = 0; k < 6; k++) {
-          pctx.fillStyle = pigmentColor(d.pc, 0.05, d.seed + k);
+          pctx.fillStyle = pigmentAccent(d.pc, 0.05, d.seed + k);
           pctx.beginPath();
           pctx.arc(d.x + gauss() * 0.5, d.y + d.w * 0.3 + gauss() * 0.5,
                    d.w * (1.15 - k * 0.06), 0, Math.PI * 2);

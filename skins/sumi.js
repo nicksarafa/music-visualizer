@@ -31,19 +31,19 @@ PIGMENT.registerSkin({
     grain: { base: 236, spread: 12, warm: false, alpha: 8, density: 0.4 },
   },
   color(pc, alpha, seed, quality = 1, hueOff = 0) {
-    if (pc === 0) {                       // the vermilion seal, only for C
-      const l = 0.55 + Math.sin(seed * 12.9898) * 0.04;
-      return `oklch(${l.toFixed(3)} 0.165 32 / ${alpha.toFixed(3)})`;
-    }
-    // ink depth follows the circle of fifths: sharp keys pale, flat keys deep
+    // pure ink: depth follows the circle of fifths, sharp keys pale,
+    // flat keys deep; the only red in the room is the seal (accent)
     const fifth = (pc * 7) % 12;
-    const l = 0.24 + (fifth / 12) * 0.34
+    const l = 0.2 + (fifth / 12) * 0.45
             + Math.sin(seed * 12.9898) * 0.05 + (1 - quality) * 0.04;
     const c = 0.012 + Math.sin(seed * 78.233) * 0.006;
     return `oklch(${l.toFixed(3)} ${c.toFixed(3)} 80 / ${alpha.toFixed(3)})`;
   },
   edge(pc, alpha) {
-    if (pc === 0) return `oklch(0.45 0.17 32 / ${alpha.toFixed(3)})`;
     return `oklch(0.2 0.01 80 / ${alpha.toFixed(3)})`;
+  },
+  // drip beads and thread nodes become tiny vermilion seal-stamps
+  accent(pc, alpha, seed) {
+    return `oklch(0.52 0.185 30 / ${Math.min(1, alpha * 2.2).toFixed(3)})`;
   },
 });
