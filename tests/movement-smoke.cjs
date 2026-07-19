@@ -96,7 +96,7 @@ function fakeContext() {
     arc() { drawCounts.arc++; },
     ellipse() { drawCounts.ellipse++; },
     clearRect() {}, fillRect() {}, drawImage() {}, putImageData() {},
-    save() {}, restore() {}, translate() {}, rotate() {}, setLineDash() {},
+    save() {}, restore() {}, translate() {}, rotate() {}, clip() {}, setLineDash() {},
     createRadialGradient: fakeGradient,
     createImageData(w, h) { return { data: new Uint8ClampedArray(w * h * 4) }; },
   };

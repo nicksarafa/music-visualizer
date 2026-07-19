@@ -103,9 +103,13 @@ const DEFAULT_PARAMS = {
   leanMode: "flow",         // "flow" | "vertical" (curtains)
   gravity: 1,               // drip direction/speed; negative = paint rises
   ringed: false,            // stroke floating rings instead of filled washes
-  strokeMode: "wash",       // "wash" | "airbrush" | "impasto" | "stipple"
+  strokeMode: "wash",       // "wash" | "airbrush" | "impasto" | "stipple" | "nacre"
   stippleDensity: 1,        // dot count multiplier for stippled media
   splat: 0,                 // 0..1: tiny droplets flung past the bloom's edge
+  capillary: 0,             // 0..1: branching pigment veins growing through wet marks
+  interferenceAlpha: 0,    // thin-film color bands inside nacre-like strokes
+  leafAlpha: 0,             // metallic mineral fragments embedded in a stroke
+  causticAlpha: 0,          // moving spectral highlight on the temporary wet layer
   grain: { base: 235, spread: 20, warm: true, alpha: 10, density: 0.5, light: false },
 };
 
@@ -220,6 +224,7 @@ function clearPainting() {
   threads.length = 0; gestures.length = 0; originPulses.length = 0;
   liquidParticles.length = 0; sandParticles.length = 0;
   woodTips.length = 0; woodNodes.length = 0; sandSurface.length = 0;
+  capillaryVeins.length = 0;
   recentPoints.length = 0;
   resetCompositionState();
 }
@@ -304,6 +309,11 @@ function pigmentEdge(pc, alpha) {
 // punctuation marks (drip beads, thread nodes); skins may accent these
 function pigmentAccent(pc, alpha, seed) {
   return (SKIN && SKIN.accent ? SKIN.accent : pigmentColor)(pc, alpha, seed);
+}
+// Thin-film or mineral interference colors. Most skins simply reuse their
+// accent; rare materials can provide spectral(pc, alpha, seed, phase).
+function pigmentSpectral(pc, alpha, seed, phase = 0) {
+  return (SKIN && SKIN.spectral ? SKIN.spectral : pigmentAccent)(pc, alpha, seed, phase);
 }
 
 /* ---------------- geometry ---------------- */
@@ -704,6 +714,7 @@ const sandParticles = [];
 const sandSurface = [];
 const woodTips = [];
 const woodNodes = [];
+const capillaryVeins = [];
 const recentPoints = [];
 const flow = { a: 0 };
 
@@ -1007,6 +1018,91 @@ function stepSpecialMovements(now, dt) {
   stepWood(now);
 }
 
+function spawnCapillaryVeins(bloom, level, delay) {
+  const intensity = P("capillary");
+  if (intensity <= 0 || bloom.quiet) return;
+  const count = Math.round(2 + intensity * 4 + level * 2);
+  const now = performance.now() + delay + 180;
+  for (let i = 0; i < count; i++) {
+    const angle = flow.a + (i / count) * Math.PI * 2 + gauss() * 0.13;
+    const budget = bloom.r * (0.48 + intensity * 0.48 + Math.random() * 0.26);
+    capillaryVeins.push({
+      x: bloom.x + Math.cos(angle) * bloom.r * 0.05,
+      y: bloom.y + Math.sin(angle) * bloom.r * 0.05,
+      angle, step: (0.95 + intensity * 1.35 + Math.random() * 0.75) * DPR,
+      budget, budget0: budget,
+      width: (0.42 + intensity * 0.92 + level * 0.32) * DPR,
+      pc: bloom.pc, seed: bloom.seed + i * 0.149,
+      born: now + i * 38, nextAt: now + i * 38,
+      tick: 0, depth: 0,
+    });
+  }
+  if (capillaryVeins.length > 96) {
+    capillaryVeins.splice(0, capillaryVeins.length - 96);
+  }
+}
+
+function finishCapillary(v) {
+  const leaf = P("leafAlpha");
+  if (leaf <= 0) return;
+  const r = (0.8 + hash01(Math.floor(v.seed * 1e8), v.tick, 3) * 1.8) * DPR;
+  pctx.save();
+  pctx.translate(v.x, v.y);
+  pctx.rotate(v.angle + 0.7);
+  pctx.fillStyle = pigmentAccent(v.pc, leaf * 0.55, v.seed + v.tick);
+  pctx.beginPath();
+  pctx.moveTo(-r, -r * 0.22);
+  pctx.lineTo(r * 0.12, -r * 0.7);
+  pctx.lineTo(r, r * 0.06);
+  pctx.lineTo(-r * 0.18, r * 0.64);
+  pctx.closePath();
+  pctx.fill();
+  pctx.restore();
+}
+
+function stepCapillaryVeins(now) {
+  for (let i = capillaryVeins.length - 1; i >= 0; i--) {
+    const v = capillaryVeins[i];
+    if (now < v.nextAt) continue;
+    v.nextAt = now + 22 + v.depth * 5;
+    const oldX = v.x, oldY = v.y;
+    const curl = Math.sin(v.x / (29 * DPR) + v.seed * 19 + v.tick * 0.071)
+      + Math.cos(v.y / (37 * DPR) - v.seed * 13 - v.tick * 0.047);
+    v.angle += curl * 0.055 + (hash01(Math.floor(v.seed * 1e9), v.tick, v.depth) - 0.5) * 0.12;
+    v.x += Math.cos(v.angle) * v.step;
+    v.y += Math.sin(v.angle) * v.step;
+    v.budget -= v.step;
+    v.tick++;
+    const life = Math.max(0, v.budget / v.budget0);
+    pctx.strokeStyle = pigmentSpectral(v.pc, (0.035 + life * 0.08) * P("capillary"), v.seed, v.tick * 0.065);
+    pctx.lineWidth = Math.max(0.32 * DPR, v.width * (0.35 + life * 0.65));
+    pctx.lineCap = "round";
+    pctx.beginPath(); pctx.moveTo(oldX, oldY); pctx.lineTo(v.x, v.y); pctx.stroke();
+
+    const splitEvery = 13 + v.depth * 7;
+    if (v.depth < 2 && v.budget > v.budget0 * 0.28 && v.tick % splitEvery === 0 &&
+        capillaryVeins.length < 94) {
+      const side = hash01(Math.floor(v.seed * 1e7), v.tick, 41) > 0.5 ? 1 : -1;
+      capillaryVeins.push({
+        ...v,
+        angle: v.angle + side * (0.4 + hash01(Math.floor(v.seed * 1e6), v.tick, 7) * 0.42),
+        budget: v.budget * 0.58,
+        budget0: v.budget * 0.58,
+        width: v.width * 0.62,
+        seed: v.seed + 0.317 + v.depth * 0.11,
+        depth: v.depth + 1,
+        tick: 0,
+        nextAt: now + 34,
+      });
+      v.angle -= side * 0.16;
+    }
+    if (v.budget <= 0 || v.x < 0 || v.x > W || v.y < 0 || v.y > H) {
+      if (v.x >= 0 && v.x <= W && v.y >= 0 && v.y <= H) finishCapillary(v);
+      capillaryVeins.splice(i, 1);
+    }
+  }
+}
+
 function spawnCompositionGesture(target, pc) {
   const now = performance.now();
   const paths = buildGesturePaths(target);
@@ -1225,6 +1321,7 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1, options = {}) {
     drawn: 0,
   };
   blooms.push(bloom);
+  spawnCapillaryVeins(bloom, level, delay);
   if (delay === 0) drawBloomLayers(bloom, Math.ceil(layers * 0.34));
   const splat = P("splat");
   if (!options.quiet && splat > 0) {
@@ -1240,7 +1337,7 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1, options = {}) {
     }
   }
   if (!options.quiet && P("glossAlpha") > 0) {
-    glosses.push({ x, y, r: r * 0.8, born: performance.now() + delay, life: 7000 });
+    glosses.push({ x, y, r: r * 0.8, pc, seed, born: performance.now() + delay, life: 7000 });
   }
   if (!options.quiet && ctl.drip > 0.15 && Math.random() < 0.28 + ctl.drip * 0.35) {
     const side = P("gravity") >= 0 ? 1 : -1;   // sparks break from the top
@@ -1286,6 +1383,61 @@ function drawBloomLayers(b, target) {
       pctx.fillStyle = grad;
       tracePoly(pctx, variant, b.x + dx, b.y + dy, s * 1.12);
       pctx.fill();
+    } else if (strokeMode === "nacre") {
+      // A translucent mineral body carries curved interference bands like
+      // nacre. The bands are clipped to the wet silhouette, so the effect
+      // remains a material property rather than a decorative overlay.
+      pctx.fillStyle = pigmentColor(b.pc, alpha * 0.92, b.seed + b.drawn, b.quality, hueOff);
+      tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
+      pctx.fill();
+      pctx.save();
+      tracePoly(pctx, variant, b.x + dx, b.y + dy, s * 1.015);
+      pctx.clip();
+      const interference = P("interferenceAlpha");
+      if (interference > 0 && b.drawn % 2 === 0) {
+        for (let band = 0; band < 3; band++) {
+          const phase = frac * 2.4 + band * 0.37 + b.seed * 4.7;
+          const radius = b.r * s * (0.24 + frac * 0.54 + band * 0.11);
+          pctx.strokeStyle = pigmentSpectral(
+            b.pc,
+            interference * (0.13 + (1 - frac) * 0.11),
+            b.seed + b.drawn * 0.07 + band,
+            phase,
+          );
+          pctx.lineWidth = (0.65 + (1 - frac) * 1.35 + band * 0.24) * DPR;
+          pctx.beginPath();
+          pctx.ellipse(
+            b.x + dx - Math.cos(flow.a) * b.r * 0.08,
+            b.y + dy - Math.sin(flow.a) * b.r * 0.08,
+            radius * (1.38 + band * 0.08), radius * (0.48 + band * 0.035),
+            flow.a + Math.sin(phase) * 0.18,
+            -Math.PI * 0.18, Math.PI * (1.28 + band * 0.12),
+          );
+          pctx.stroke();
+        }
+      }
+      const leaf = P("leafAlpha");
+      if (leaf > 0 && b.drawn % 4 === 0) {
+        const flakes = Math.round(2 + leaf * 5);
+        for (let flake = 0; flake < flakes; flake++) {
+          const h0 = hash01(Math.floor(b.seed * 1e9), b.drawn, flake);
+          const h1 = hash01(Math.floor(b.seed * 1e8), flake, b.drawn + 17);
+          const a = h0 * Math.PI * 2;
+          const rr = Math.sqrt(h1) * b.r * s * 0.72;
+          const fx = b.x + dx + Math.cos(a) * rr;
+          const fy = b.y + dy + Math.sin(a) * rr;
+          const fr = (0.8 + h0 * 2.5) * DPR;
+          pctx.fillStyle = pigmentAccent(b.pc, leaf * (0.16 + h1 * 0.22), b.seed + flake + frac);
+          pctx.beginPath();
+          pctx.moveTo(fx - fr, fy - fr * 0.18);
+          pctx.lineTo(fx - fr * 0.08, fy - fr * 0.74);
+          pctx.lineTo(fx + fr, fy + fr * 0.08);
+          pctx.lineTo(fx + fr * 0.12, fy + fr * 0.62);
+          pctx.closePath();
+          pctx.fill();
+        }
+      }
+      pctx.restore();
     } else if (strokeMode === "impasto") {
       pctx.fillStyle = pigmentColor(b.pc, alpha * 1.15, b.seed + b.drawn, b.quality, hueOff);
       tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
@@ -1414,6 +1566,28 @@ function stepGloss(now) {
     wctx.beginPath();
     wctx.arc(gx, gy, g.r * 0.9, 0, Math.PI * 2);
     wctx.fill();
+    const caustic = P("causticAlpha");
+    if (caustic > 0) {
+      for (let band = 0; band < 2; band++) {
+        const phase = now * 0.00022 + g.seed * 7 + band * 0.63;
+        wctx.strokeStyle = pigmentSpectral(
+          g.pc,
+          caustic * a * (0.72 - band * 0.2),
+          g.seed + band,
+          phase,
+        );
+        wctx.lineWidth = (0.8 + band * 0.65) * DPR * (1 - t * 0.55);
+        wctx.beginPath();
+        wctx.ellipse(
+          g.x - Math.cos(phase) * g.r * 0.12,
+          g.y - Math.sin(phase) * g.r * 0.1,
+          g.r * (0.58 + band * 0.17), g.r * (0.22 + band * 0.06),
+          phase * 0.27,
+          -Math.PI * 0.15, Math.PI * (0.78 + band * 0.18),
+        );
+        wctx.stroke();
+      }
+    }
   }
   for (let i = originPulses.length - 1; i >= 0; i--) {
     const pulse = originPulses[i];
@@ -1718,6 +1892,7 @@ function frame(now) {
   stepGestures(now);
   stepSpecialMovements(now, Math.min(raw, 1 / 20));
   stepBlooms(now);
+  stepCapillaryVeins(now);
   stepThreads(now);
   let remaining = Math.min(raw, 1.5);
   let simNow = now - remaining * 1000;
@@ -1900,7 +2075,7 @@ window.addEventListener("DOMContentLoaded", () => {
 /* debug handle for automated visual testing */
 window.PIG = {
   spawnStrike, spawnBloom, blooms, drips, glosses, threads, gestures,
-  liquidParticles, sandParticles, woodTips, woodNodes, ctl,
+  liquidParticles, sandParticles, woodTips, woodNodes, capillaryVeins, ctl,
   score: () => compositionState.lastScore,
   composition: () => COMPOSITION,
   setComposition,
@@ -1913,6 +2088,7 @@ window.PIG = {
       stepGestures(vnow);
       stepSpecialMovements(vnow, 1 / 60);
       stepBlooms(vnow);
+      stepCapillaryVeins(vnow);
       stepThreads(vnow);
       stepDrips(vnow, 1 / 60);
       stepFade(1 / 60);
@@ -1927,6 +2103,13 @@ window.PIG = {
       sand: sandParticles.length,
       woodTips: woodTips.length,
       woodNodes: woodNodes.length,
+    };
+  },
+  materialStats() {
+    return {
+      id: SKIN ? SKIN.name : null,
+      capillaries: capillaryVeins.length,
+      glosses: glosses.length,
     };
   },
   async playUrl(url, volume = 0.35) {
@@ -1959,6 +2142,7 @@ window.PIG = {
       stepGestures(now);
       stepSpecialMovements(now, 1 / 30);
       stepBlooms(now);
+      stepCapillaryVeins(now);
       stepThreads(now);
       stepDrips(now, 1 / 30);
       const until = now + 33;
