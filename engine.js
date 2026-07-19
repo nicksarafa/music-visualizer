@@ -84,10 +84,11 @@ const DEFAULT_PARAMS = {
   threadAlpha: 0.30,        // connection line opacity
   threadNodes: true,        // node beads at thread ends
   sizeMul: 1,               // overall wash scale
-  placement: "scatter",     // "scatter" | "orbit" (spiral arm around center)
   leanMode: "flow",         // "flow" | "vertical" (curtains)
   gravity: 1,               // drip direction/speed; negative = paint rises
   ringed: false,            // stroke floating rings instead of filled washes
+  strokeMode: "wash",       // "wash" | "airbrush" | "impasto" | "stipple"
+  stippleDensity: 1,        // dot count multiplier for stippled media
   splat: 0,                 // 0..1: tiny droplets flung past the bloom's edge
   grain: { base: 235, spread: 20, warm: true, alpha: 10, density: 0.5, light: false },
 };
@@ -590,8 +591,24 @@ function spawnCompositionGesture(target, pc) {
     });
   });
   if (gestures.length > 24) gestures.splice(0, gestures.length - 24);
-  originPulses.push({ pc, seed: target.seed, score: target.score.total, born: now, life: 1200 });
+  const seedAngle = (pc / 12) * Math.PI * 2 + compositionState.event * 0.21;
+  const seedRadius = Math.min(W, H) * (0.008 + target.score.total * 0.012);
+  const seedX = W * 0.5 + Math.cos(seedAngle) * seedRadius;
+  const seedY = H * 0.5 + Math.sin(seedAngle) * seedRadius;
+  for (let i = 0; i < 3; i++) {
+    pctx.fillStyle = pigmentAccent(pc, 0.055, target.seed + i * 0.23);
+    pctx.beginPath();
+    pctx.arc(
+      seedX + gauss() * 0.45 * DPR,
+      seedY + gauss() * 0.45 * DPR,
+      (1.2 + target.score.total * 2.2 - i * 0.22) * DPR,
+      0, Math.PI * 2,
+    );
+    pctx.fill();
+  }
+  originPulses.push({ pc, seed: target.seed, score: target.score.total, born: now, life: 1750 });
   if (originPulses.length > 8) originPulses.shift();
+  return paths;
 }
 
 function stepGestures(now) {
@@ -695,13 +712,28 @@ function spawnStrike(pcs, level) {
   const minD = Math.min(W, H);
   flow.a = target.angle + gauss() * 0.14;
   if (P("leanMode") === "vertical") flow.a = Math.PI / 2 + gauss() * 0.12;
-  spawnCompositionGesture(target, pcs[0].pc);
+  const gesturePaths = spawnCompositionGesture(target, pcs[0].pc);
   spawnThreads(x, y, pcs[0].pc);
   rememberPoint(x, y, pcs[0].pc);
 
   const sizeBase = (0.03 + ctl.size * 0.065) * minD *
-    (0.68 + Math.random() * 0.48) * P("sizeMul") * (0.84 + expression.total * 0.38);
+    (0.68 + Math.random() * 0.48) * P("sizeMul") * (0.78 + expression.total * 0.28);
   const total = pcs.reduce((s, p) => s + p.w, 0) || 1;
+
+  // Small traveling stains make the gesture feel painted through space,
+  // rather than a wire connecting isolated stamps. They stay translucent
+  // and dry so the center-to-edge route remains visible without clutter.
+  const echoCount = expression.total > 0.68 ? 2 : 1;
+  for (let i = 0; i < echoCount; i++) {
+    const path = gesturePaths[i % gesturePaths.length];
+    const q = 0.34 + (i / Math.max(1, echoCount - 1)) * 0.32;
+    const point = path[Math.min(path.length - 1, Math.floor(q * path.length))];
+    spawnBloom(
+      point.x, point.y, sizeBase * (0.19 + expression.total * 0.07),
+      root, level * 0.7, 110 + i * 120, quality,
+      { alphaMul: 0.34, layerMul: 0.48, quiet: true },
+    );
+  }
 
   pcs.forEach((p, i) => {
     const share = p.w / total;
@@ -712,7 +744,7 @@ function spawnStrike(pcs, level) {
   });
 }
 
-function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
+function spawnBloom(x, y, r, pc, level, delay, quality = 1, options = {}) {
   const seed = Math.random();
   const [stMin, stVar] = P("stretch");
   const stretch = stMin + Math.random() * stVar;
@@ -722,12 +754,12 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
     return { x: ex * ca - ey * sa, y: ex * sa + ey * ca, v: p.v };
   });
   const [lBase, lVar] = P("layerCount");
-  const layers = Math.round(lBase + ctl.bleed * lVar);
+  const layers = Math.max(3, Math.round((lBase + ctl.bleed * lVar) * (options.layerMul || 1)));
   const bloom = {
-    x, y, r, pc, seed, poly, layers, quality,
+    x, y, r, pc, seed, poly, layers, quality, quiet: !!options.quiet,
     driftA: Math.random() * Math.PI * 2,
     edgeSoft: 0.7 + Math.random() * 0.6,
-    aMul: Math.min(1.5, Math.max(1, 1.6 - r / (Math.min(W, H) * 0.07))),
+    aMul: Math.min(1.5, Math.max(1, 1.6 - r / (Math.min(W, H) * 0.07))) * (options.alphaMul || 1),
     born: performance.now() + delay,
     life: 1400 + ctl.bleed * 900,
     drawn: 0,
@@ -735,7 +767,7 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
   blooms.push(bloom);
   if (delay === 0) drawBloomLayers(bloom, Math.ceil(layers * 0.34));
   const splat = P("splat");
-  if (splat > 0) {
+  if (!options.quiet && splat > 0) {
     const n = Math.round(splat * (4 + level * 8));
     for (let k = 0; k < n; k++) {
       const a = Math.random() * Math.PI * 2;
@@ -747,10 +779,10 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
       pctx.fill();
     }
   }
-  if (P("glossAlpha") > 0) {
+  if (!options.quiet && P("glossAlpha") > 0) {
     glosses.push({ x, y, r: r * 0.8, born: performance.now() + delay, life: 7000 });
   }
-  if (ctl.drip > 0.15 && Math.random() < 0.28 + ctl.drip * 0.35) {
+  if (!options.quiet && ctl.drip > 0.15 && Math.random() < 0.28 + ctl.drip * 0.35) {
     const side = P("gravity") >= 0 ? 1 : -1;   // sparks break from the top
     drips.push({
       x: x + (Math.random() - 0.5) * r * 0.6,
@@ -775,12 +807,53 @@ function drawBloomLayers(b, target) {
     const hueOff = Math.sin(b.seed * 40 + run * 2.1) * 9;
     const variant = deform(b.poly.map(p => ({ ...p })), b.r * P("deformLayer") * b.edgeSoft, 2);
     const alpha = (P("layerAlphaBase") + P("layerAlphaVar") * (1 - frac)) * (b.aMul || 1);
+    const strokeMode = b.quiet ? "wash" : P("strokeMode");
     if (P("ringed")) {
       // suminagashi: concentric floating rings instead of filled washes
       pctx.strokeStyle = pigmentColor(b.pc, Math.min(1, alpha * 2.4), b.seed + b.drawn, b.quality, hueOff);
       pctx.lineWidth = (0.8 + Math.random() * 1.3) * DPR;
       tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
       pctx.stroke();
+    } else if (strokeMode === "airbrush") {
+      const rr = Math.max(2, b.r * s * 1.15);
+      const grad = pctx.createRadialGradient(
+        b.x + dx - rr * 0.18, b.y + dy - rr * 0.16, rr * 0.04,
+        b.x + dx, b.y + dy, rr,
+      );
+      grad.addColorStop(0, pigmentColor(b.pc, alpha * 0.72, b.seed + b.drawn, b.quality, hueOff));
+      grad.addColorStop(0.62, pigmentColor(b.pc, alpha, b.seed + b.drawn + 0.2, b.quality, hueOff));
+      grad.addColorStop(1, pigmentColor(b.pc, 0, b.seed + b.drawn + 0.4, b.quality, hueOff));
+      pctx.fillStyle = grad;
+      tracePoly(pctx, variant, b.x + dx, b.y + dy, s * 1.12);
+      pctx.fill();
+    } else if (strokeMode === "impasto") {
+      pctx.fillStyle = pigmentColor(b.pc, alpha * 1.15, b.seed + b.drawn, b.quality, hueOff);
+      tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
+      pctx.fill();
+      if (b.drawn % 3 === 0) {
+        pctx.strokeStyle = pigmentColor(
+          b.pc, Math.min(0.28, alpha * 2.1), b.seed + b.drawn + 0.31, b.quality, hueOff,
+        );
+        pctx.lineWidth = (0.65 + (1 - frac) * 1.55) * DPR;
+        pctx.stroke();
+      }
+    } else if (strokeMode === "stipple") {
+      const dots = Math.round((4 + b.r / (24 * DPR)) * P("stippleDensity"));
+      pctx.fillStyle = pigmentColor(
+        b.pc, Math.min(0.62, alpha * 4.2), b.seed + b.drawn, b.quality, hueOff,
+      );
+      for (let dot = 0; dot < dots; dot++) {
+        const da = Math.random() * Math.PI * 2;
+        const dr = Math.sqrt(Math.random()) * b.r * s * 0.82;
+        pctx.beginPath();
+        pctx.arc(
+          b.x + dx + Math.cos(da) * dr,
+          b.y + dy + Math.sin(da) * dr,
+          (0.75 + Math.random() * 1.65) * DPR,
+          0, Math.PI * 2,
+        );
+        pctx.fill();
+      }
     } else {
       pctx.fillStyle = pigmentColor(b.pc, alpha, b.seed + b.drawn, b.quality, hueOff);
       tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
@@ -810,8 +883,8 @@ function stepBlooms(now) {
     if (t < 0) continue;
     if (t >= 1) {
       drawBloomLayers(b, b.layers);
-      if (P("granulate")) granulate(b);
-      if (P("edgeAlpha") > 0) {
+      if (!b.quiet && P("granulate")) granulate(b);
+      if (!b.quiet && P("edgeAlpha") > 0) {
         const edge = deform(b.poly.map(p => ({ ...p })), b.r * 0.04, 2);
         pctx.strokeStyle = pigmentEdge(b.pc, P("edgeAlpha"));
         pctx.lineWidth = 0.9 * DPR;
@@ -888,12 +961,14 @@ function stepGloss(now) {
     if (t < 0) continue;
     if (t >= 1) { originPulses.splice(i, 1); continue; }
     const eased = 1 - Math.pow(1 - t, 4);
-    const r = Math.min(W, H) * (0.018 + eased * (0.15 + pulse.score * 0.12));
-    const alpha = (1 - t) * (0.13 + pulse.score * 0.12);
+    const reach = 0.035 + eased * (0.93 + pulse.score * 0.05);
+    const rx = W * 0.5 * reach;
+    const ry = H * 0.5 * reach;
+    const alpha = Math.sin(Math.PI * t) * (0.055 + pulse.score * 0.07);
     wctx.strokeStyle = pigmentColor(pulse.pc, alpha, pulse.seed);
     wctx.lineWidth = (1.1 + pulse.score * 1.8) * DPR * (1 - t * 0.45);
     wctx.beginPath();
-    wctx.ellipse(W * 0.5, H * 0.5, r * (W > H ? 1.18 : 1), r, 0, 0, Math.PI * 2);
+    wctx.ellipse(W * 0.5, H * 0.5, rx, ry, 0, 0, Math.PI * 2);
     wctx.stroke();
   }
 }

@@ -1,6 +1,6 @@
-/* spiral — a galaxy assembling itself from your playing.
-   Strikes ride a slowly turning spiral arm outward from the core;
-   over a song the music builds a galaxy, chord by chord. */
+/* spiral — galactic pigment for any movement.
+   Luminous clouds, thin star trails, and spectral dust pair especially
+   well with slow orbit, while remaining independent from composition. */
 
 PIGMENT.registerSkin({
   name: "spiral",
@@ -17,7 +17,6 @@ PIGMENT.registerSkin({
   params: {
     blend: "screen",
     paperHex: "#0a0812",
-    placement: "orbit",
     sizeMul: 0.85,
     layerCount: [18, 20],
     layerAlphaBase: 0.015,

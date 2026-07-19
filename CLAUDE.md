@@ -2,7 +2,7 @@
 
 No build step. Serve with `python3 -m http.server 8477` (mic needs localhost, not file://).
 
-Architecture: `engine.js` = all audio analysis, paint physics, and UI wiring. `index.html` = markup + base styles + skin script tags. `skins/*.js` = visual identities registered via `PIGMENT.registerSkin({name, vars, params, color?, edge?, accent?})`; chosen from the panel dropdown, persisted in localStorage. Engine defaults live in `DEFAULT_PARAMS` in `engine.js` — a skin overrides any subset via `params`. Keep engine changes skin-agnostic; keep skin files free of logic. New skin = new file + one script tag; commit each skin separately.
+Architecture: `engine.js` = audio analysis, ten center-origin movement systems, paint physics, and UI wiring. `index.html` = markup + base styles + skin script tags. `skins/*.js` = visual identities registered via `PIGMENT.registerSkin({name, vars, params, color?, edge?, accent?})`; chosen from the paint dropdown, persisted in localStorage. Movement is selected independently and persisted as `pigment-composition`. Engine defaults live in `DEFAULT_PARAMS` in `engine.js`; a skin overrides any subset via `params`. Keep engine changes skin-agnostic; keep skin files free of logic. New skin = new file + one script tag.
 
 **Before changing any visuals, read `SCORING.md`.** It is the canonical quality rubric and score log for this project. Evaluate with its protocol, log your scores there, and attack the lowest dimension first. Never raise a score without a change that caused it.
 

@@ -1,6 +1,6 @@
 /* meteor — a shower over the edge of the atmosphere.
-   Strikes circle in on a turning arm while their trails burn upward
-   and away: falling stars seen from above the sky. */
+   Compact burning heads leave upward mineral trails; movement remains
+   independent, so every spatial system can become a meteor shower. */
 
 PIGMENT.registerSkin({
   name: "meteor",
@@ -17,7 +17,6 @@ PIGMENT.registerSkin({
   params: {
     blend: "screen",
     paperHex: "#0a0d18",
-    placement: "orbit",
     gravity: -0.85,            // trails burn upward
     sizeMul: 0.7,              // compact burning heads
     layerCount: [12, 12],

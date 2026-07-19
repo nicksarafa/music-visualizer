@@ -125,3 +125,30 @@ Skin-specific taste rules: every skin must keep the fifths-derived determinism a
 (same chord, same color/tone family), must remain quiet-chrome (panel/status restyled, never
 redesigned), and must pass the identity question above. When evaluating a new skin, run the
 standard protocol once on either track plus one fixed-verse spawnStrike sweep.
+
+## Center-origin movement + material expansion (48–53)
+
+This pass separated spatial composition from material rendering. All ten movements now begin at
+the viewport center, cross the full canvas through a gesture and expanding wavefront, and use the
+same five-part expression score to decide visual consequence. The score measures impact, harmonic
+richness, tonal travel, breath, and clarity/dynamic motion; it evaluates the expression available
+to the painter, never the quality of the song.
+
+The standard 40-second built-in demo was used because the local evaluation WAVs were unavailable.
+Each new material was tested at 2560 x 1353 with Radiant Heart, plus Jazz Ribbon spot checks on the
+dark materials. The movement selector exposes all 10 systems and the paint selector exposes all 21
+materials. No browser console errors were present.
+
+| iter | what | verdict | 1 breath | 2 flow | 3 canvas | 4 color | 5 paint | 6 respond | 7 chrome | notes |
+|------|------|---------|----------|--------|----------|---------|---------|-----------|----------|-------|
+| 48 | center-origin system | pass | 10 | 10 | 10 | 10 | 10 | 10 | 10 | restrained rosette, traveling stain, and full-frame wavefront make origin and journey legible |
+| 49 | color field | shipped | 9.5 | 10 | 10 | 9.5 | 9.5 | 10 | 10 | broad soak-stains tuned away from fuzzy airbrush edges |
+| 50 | impasto | shipped | 9.5 | 9.5 | 10 | 10 | 9 | 10 | 10 | viscous layered bodies; ridge frequency reduced to avoid a topographic look |
+| 51 | pointillist | shipped | 10 | 9.5 | 10 | 10 | 9.5 | 10 | 10 | granular optical mixtures stay airy after 40 seconds |
+| 52 | cyanotype | shipped | 10 | 10 | 10 | 10 | 9.5 | 10 | 10 | pale photographic traces remain clear over deep Prussian blue |
+| 53 | ultraviolet | shipped | 9.5 | 10 | 10 | 10 | 9.5 | 10 | 10 | theatrical violet, cobalt, and gold retain contrast and open space |
+
+The new bar: composition changes must keep their origin legible, reach all four canvas regions,
+and preserve silence as visible space. Material changes must remain recognizable when paired with
+at least two different movements; material may alter texture, blend, and atmosphere, but not spatial
+placement.
