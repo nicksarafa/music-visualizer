@@ -29,6 +29,10 @@ The panel's **skin** dropdown switches the visual world; the music-to-paint engi
 - **spiral** — a galaxy assembling itself, strikes riding a turning arm
 - **embers** — coals on char; gravity reversed, sparks climb
 - **suminagashi** — floating ink rings, the oldest marbling
+- **koi** — rain rippling a jade pond, orange koi flashing beneath
+- **meteor** — a circling shower of burning heads, trails streaming upward
+- **flora** — pressed leaves and blossoms in a herbarium album
+- **neon** — hand-bent glowing tubes wired together over wet asphalt
 
 The panel shows painted swatch previews of every skin. Keyboard: `c` clear, `s` save, `r` record video (with audio), `f` focus mode (fullscreen, chrome hidden), `h` panel, `[` `]` cycle skins.
 

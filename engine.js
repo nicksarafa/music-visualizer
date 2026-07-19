@@ -37,6 +37,7 @@ const DEFAULT_PARAMS = {
   leanMode: "flow",         // "flow" | "vertical" (curtains)
   gravity: 1,               // drip direction/speed; negative = paint rises
   ringed: false,            // stroke floating rings instead of filled washes
+  splat: 0,                 // 0..1: tiny droplets flung past the bloom's edge
   grain: { base: 235, spread: 20, warm: true, alpha: 10, density: 0.5, light: false },
 };
 
@@ -431,6 +432,19 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
   };
   blooms.push(bloom);
   if (delay === 0) drawBloomLayers(bloom, Math.ceil(layers * 0.34));
+  const splat = P("splat");
+  if (splat > 0) {
+    const n = Math.round(splat * (4 + level * 8));
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = r * (1.1 + Math.random() * splat * 2.2);
+      pctx.fillStyle = pigmentColor(pc, 0.2 + Math.random() * 0.25, seed + k, quality);
+      pctx.beginPath();
+      pctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d,
+               (0.7 + Math.random() * 1.8) * DPR, 0, Math.PI * 2);
+      pctx.fill();
+    }
+  }
   if (P("glossAlpha") > 0) {
     glosses.push({ x, y, r: r * 0.8, born: performance.now() + delay, life: 7000 });
   }

@@ -100,6 +100,16 @@ New engine params for skins: placement ("scatter"|"orbit"), leanMode ("flow"|"ve
 gravity (negative = rises), ringed (stroke rings instead of fills). UI: skin gallery swatches,
 keyboard shortcuts, focus mode (f), video recording with audio (r), soft-fade clears.
 
+## Second expansion (41–46)
+
+| iter | what | verdict | notes |
+|------|------|---------|-------|
+| 41 | splat param | pass | droplets flung past bloom edge (0..1) |
+| 42–43 | koi | shipped | ripple rings on jade; koi presence lifted after shy first draft |
+| 44 | meteor | shipped first-pass | orbit + gravity -0.85 + splat: circling shower, trails burn upward |
+| 45–46 | flora | shipped | leaf-only first draft; interleaved fern/blossom by fifth parity |
+| 46 | neon | shipped first-pass | ringed tubes in four gas colors, wire threads, rain-run drips |
+
 Skin-specific taste rules: every skin must keep the fifths-derived determinism audible-to-visible
 (same chord, same color/tone family), must remain quiet-chrome (panel/status restyled, never
 redesigned), and must pass the identity question above. When evaluating a new skin, run the
