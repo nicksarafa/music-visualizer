@@ -58,6 +58,12 @@
     font-family: "Sorts Mill Goudy", Georgia, serif;
     font-style: italic; font-size: 16px; color: var(--ink);
   }
+  #notedot {
+    width: 9px; height: 9px; border-radius: 50%;
+    align-self: center;
+    background: transparent;
+    transition: background 0.6s var(--ease);
+  }
 
   /* ---------- welcome ---------- */
   #welcome {
@@ -181,7 +187,7 @@
 
 <div id="wordmark">pigment</div>
 
-<div id="status"><span id="listening">listening</span><span id="notes"></span></div>
+<div id="status"><span id="listening">listening</span><span id="notedot"></span><span id="notes"></span></div>
 
 <div id="welcome">
   <h1>pigment</h1>
@@ -347,8 +353,9 @@ function pcHue(pc) {
 }
 
 // quality: 1 = major/neutral, shaded softer + cooler for minor
-function pigmentColor(pc, alpha, jitterSeed, quality = 1) {
-  const hue = pcHue(pc);
+// hueOff: small per-glaze hue shift, so stacked layers read as hand-mixed washes
+function pigmentColor(pc, alpha, jitterSeed, quality = 1, hueOff = 0) {
+  const hue = (pcHue(pc) + hueOff + 360) % 360;
   // real pigments: yellows are light, blues and violets sit deeper
   const dh = Math.min(Math.abs(hue - 100), 360 - Math.abs(hue - 100));
   const sunlit = Math.exp(-(dh * dh) / 3200);          // 1 near yellow, 0 far
@@ -497,26 +504,30 @@ function spawnStrike(pcs, level) {
 
   // paint pops up anywhere on the full canvas, but breathes: it avoids
   // landing directly on the last few strikes
-  flow.a = Math.random() * Math.PI * 2;
   let x = 0, y = 0;
   const minD = Math.min(W, H);
-  const recent = recentPoints.slice(-4);
-  for (let attempt = 0; attempt < 4; attempt++) {
+  const recent = recentPoints.slice(-6);
+  for (let attempt = 0; attempt < 5; attempt++) {
     x = W * (0.07 + Math.random() * 0.86);
     y = H * (0.07 + Math.random() * 0.86);
-    if (recent.every(p => Math.hypot(p.x - x, p.y - y) > minD * 0.2)) break;
+    if (recent.every(p => Math.hypot(p.x - x, p.y - y) > minD * 0.27)) break;
   }
+  // washes lean along the leap from the previous strike, so even scattered
+  // paint implies one continuous movement
+  const prev = recentPoints[recentPoints.length - 1];
+  flow.a = prev ? Math.atan2(y - prev.y, x - prev.x) + gauss() * 0.4
+                : Math.random() * Math.PI * 2;
   spawnThreads(x, y, pcs[0].pc);
   rememberPoint(x, y, pcs[0].pc);
 
   // the current swells and thins like a river: strong per-strike variance
-  const sizeBase = (0.035 + ctl.size * 0.075) * Math.min(W, H) * (0.72 + Math.random() * 0.6);
+  const sizeBase = (0.03 + ctl.size * 0.065) * Math.min(W, H) * (0.72 + Math.random() * 0.6);
   const total = pcs.reduce((s, p) => s + p.w, 0) || 1;
 
   pcs.forEach((p, i) => {
     const share = p.w / total;
     // root dominates; upper chord tones are smaller washes bleeding out of it
-    const r = sizeBase * (i === 0 ? 0.95 : 0.45 + share * 0.5) * (0.75 + level * 0.5);
+    const r = sizeBase * (i === 0 ? 0.95 : 0.4 + share * 0.45) * (0.75 + level * 0.5);
     const a = Math.random() * Math.PI * 2;
     const d = i === 0 ? 0 : sizeBase * (0.5 + Math.random() * 0.35);
     spawnBloom(x + Math.cos(a) * d, y + Math.sin(a) * d, r, p.pc, level, i * 80, quality);
@@ -536,6 +547,10 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
   const layers = Math.round(16 + ctl.bleed * 22);
   const bloom = {
     x, y, r, pc, seed, poly, layers, quality,
+    driftA: Math.random() * Math.PI * 2,
+    edgeSoft: 0.7 + Math.random() * 0.6,   // some washes crisp, some soft
+    // small washes carry denser pigment so they don't blur into cotton
+    aMul: Math.min(1.5, Math.max(1, 1.6 - r / (Math.min(W, H) * 0.07))),
     born: performance.now() + delay,
     life: 1400 + ctl.bleed * 900,
     drawn: 0,
@@ -562,12 +577,34 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
 
 function drawBloomLayers(b, target) {
   while (b.drawn < target) {
-    const s = 0.55 + (b.drawn / b.layers) * 0.5;
-    const variant = deform(b.poly.map(p => ({ ...p })), b.r * 0.065, 2);
-    pctx.fillStyle = pigmentColor(b.pc, 0.023 + 0.017 * (1 - b.drawn / b.layers), b.seed + b.drawn, b.quality);
-    tracePoly(pctx, variant, b.x, b.y, s);
+    const frac = b.drawn / b.layers;
+    // layers grow with jitter and drift slightly off-center, like paint
+    // pooling toward one side of the wash
+    const s = (0.55 + frac * 0.5) * (0.96 + Math.random() * 0.08);
+    const dx = Math.cos(b.driftA) * frac * b.r * 0.10;
+    const dy = Math.sin(b.driftA) * frac * b.r * 0.10;
+    // glazing: runs of ~5 layers shift hue a few degrees, hand-mixed
+    const run = Math.floor(b.drawn / 5);
+    const hueOff = Math.sin(b.seed * 40 + run * 2.1) * 9;
+    const variant = deform(b.poly.map(p => ({ ...p })), b.r * 0.05 * b.edgeSoft, 2);
+    pctx.fillStyle = pigmentColor(b.pc, (0.023 + 0.017 * (1 - frac)) * (b.aMul || 1), b.seed + b.drawn, b.quality, hueOff);
+    tracePoly(pctx, variant, b.x + dx, b.y + dy, s);
     pctx.fill();
     b.drawn++;
+  }
+}
+
+// granulation: pigment particles settle into the paper tooth
+function granulate(b) {
+  const n = Math.round(14 + b.r * 0.12);
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * Math.PI * 2;
+    const rr = Math.sqrt(Math.random()) * b.r * 0.8;
+    pctx.fillStyle = pigmentColor(b.pc, 0.05 + Math.random() * 0.05, b.seed + k, b.quality);
+    pctx.beginPath();
+    pctx.arc(b.x + Math.cos(a) * rr, b.y + Math.sin(a) * rr,
+             (0.5 + Math.random() * 1.1) * DPR, 0, Math.PI * 2);
+    pctx.fill();
   }
 }
 
@@ -577,11 +614,13 @@ function stepBlooms(now) {
     const t = (now - b.born) / b.life;
     if (t < 0) continue;
     if (t >= 1) {
-      // finish any layers missed during throttled frames, then darken the edge
+      // finish any layers missed during throttled frames, then settle:
+      // granulation inside, a fine darkened rim at the final extent
       drawBloomLayers(b, b.layers);
-      const edge = deform(b.poly.map(p => ({ ...p })), b.r * 0.05, 2);
-      pctx.strokeStyle = pigmentEdge(b.pc, 0.05);
-      pctx.lineWidth = 1.1 * DPR;
+      granulate(b);
+      const edge = deform(b.poly.map(p => ({ ...p })), b.r * 0.04, 2);
+      pctx.strokeStyle = pigmentEdge(b.pc, 0.07);
+      pctx.lineWidth = 0.9 * DPR;
       tracePoly(pctx, edge, b.x, b.y, 1.02);
       pctx.stroke();
       blooms.splice(i, 1);
@@ -834,7 +873,7 @@ function analyse(now) {
   const mean = fluxHistory.reduce((a, b) => a + b, 0) / fluxHistory.length;
   const sd = Math.sqrt(fluxHistory.reduce((a, b) => a + (b - mean) ** 2, 0) / fluxHistory.length);
   const gate = 0.015 + (1 - ctl.sens) * 0.05;      // level gate
-  const thresh = mean + sd * (3.0 - ctl.sens * 1.7);
+  const thresh = mean + sd * (3.2 - ctl.sens * 1.7);
 
   // dominant pitch classes from the smoothed chroma: transient harmonics
   // shouldn't get to pick colors, only settled harmony
@@ -857,7 +896,7 @@ function analyse(now) {
   const dominant = pcs.length ? pcs[0].pc : -1;
   const pcChanged = dominant !== -1 && dominant !== lastDominantPc && audible;
   // sustained pads and held notes keep releasing gentle washes
-  const sustained = audible && pcs.length > 0 && now - lastSpawn > 4200;
+  const sustained = audible && pcs.length > 0 && now - lastSpawn > 5200;
 
   // real onsets paint IMMEDIATELY; the gentler triggers are paced and
   // budgeted so ambient sound can't crowd the canvas
@@ -867,7 +906,7 @@ function analyse(now) {
   const calm = spawnTimes.length < 4;
 
   if (pcs.length &&
-      ((onset && now - lastSpawn > 160) ||
+      ((onset && now - lastSpawn > 260) ||
        (mayStrike && calm && (pcChanged || sustained)))) {
     spawnTimes.push(now);
     if (sustained && !onset && !pcChanged) level *= 0.55;
@@ -876,10 +915,13 @@ function analyse(now) {
     lastDominantPc = dominant;
     spawnStrike(pcs, level);
     notesEl.textContent = pcs.map(p => NOTE_NAMES[p.pc]).join(" · ");
+    document.getElementById("notedot").style.background =
+      pigmentColor(pcs[0].pc, 0.9, 0.5);
     document.body.classList.remove("idle");
     clearTimeout(statusFadeTimer);
     statusFadeTimer = setTimeout(() => {
       notesEl.textContent = "";
+      document.getElementById("notedot").style.background = "transparent";
       document.body.classList.add("idle");
     }, 2600);
   }

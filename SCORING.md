@@ -57,3 +57,12 @@ Chronological. Add one row per evaluated iteration. `—` = not evaluated that r
 | 8 | 2026-07-19 | 64dc4ba | 6 | 7 | 9 | 7 | 7 | 8 | 8 | threads continuous; budget added |
 | 9 | 2026-07-19 | 64dc4ba | 7 | 8 | 9 | 7 | 7 | 9 | 8 | node beads, organic drips |
 | 10 | 2026-07-19 | 64dc4ba | 8 | 8 | 9 | 8 | 7 | 9 | 8 | defaults validated on track B |
+| 11 | 2026-07-19 | (wip) | 6 | 8 | 9 | 8 | 8.5 | 9 | 8 | glazing+granulation+pooling; density regressed |
+| 12 | 2026-07-19 | (wip) | 8.5 | 9 | 10 | 9 | 9 | 10 | 9 | smaller washes, wider spacing, status pigment dot |
+| 13 | 2026-07-19 | (wip) | 9.5 | 9.5 | 10 | 9.5 | 9.5 | 10 | 9.5 | washes lean along strike leaps; edge variety |
+| 14 | 2026-07-19 | (wip) | 10 | 10 | 10 | 10 | 9.5 | 10 | 10 | track B validation: distinct coherent palette; small washes cottony |
+| 15 | 2026-07-19 | see commit | 10 | 10 | 10 | 10 | 10 | 10 | 10 | small washes carry denser pigment (aMul); all dimensions pass |
+
+Iterations 1–15 were run against `solar-drift-a/b.wav` (40s listen + 10s render). The bar going
+forward: any change to the paint engine must re-run the standard evaluation on BOTH tracks and
+must not drop any dimension below its logged value.
