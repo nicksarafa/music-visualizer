@@ -20,6 +20,7 @@ PIGMENT.registerSkin({
     layerAlphaBase: 0.09,
     layerAlphaVar: 0.04,
     deformInit: 0.09,
+    deformDepth: 2,           // smooth pane silhouettes for clean lead
     deformLayer: 0.012,       // crisp glass edges
     stretch: [1.15, 0.35],
     granulate: false,
@@ -33,8 +34,8 @@ PIGMENT.registerSkin({
   // jewel glass: saturated, moderately dark, glowing
   color(pc, alpha, seed, quality = 1, hueOff = 0) {
     const hue = (PIGMENT.helpers.pcHue(pc) + hueOff * 0.3 + 360) % 360;
-    const l = 0.55 + Math.sin(seed * 12.9898) * 0.06 - (1 - quality) * 0.07;
-    const c = 0.17 + Math.sin(seed * 78.233) * 0.02;
+    const l = 0.58 + Math.sin(seed * 12.9898) * 0.06 - (1 - quality) * 0.07;
+    const c = 0.19 + Math.sin(seed * 78.233) * 0.02;
     return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${hue.toFixed(1)} / ${alpha.toFixed(3)})`;
   },
   // lead, not pigment: the seams are near-black regardless of note

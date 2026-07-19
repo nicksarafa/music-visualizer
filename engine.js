@@ -20,6 +20,7 @@ const DEFAULT_PARAMS = {
   layerAlphaVar: 0.017,     // extra opacity for early glazes
   layerCount: [16, 22],     // [base, extra*bleed]
   deformInit: 0.12,         // wash silhouette roughness (× r)
+  deformDepth: 4,           // silhouette recursion (lower = smoother shapes)
   deformLayer: 0.05,        // per-glaze edge feather (× r)
   baseVerts: 14,            // silhouette vertex count
   stretch: [1.25, 0.5],     // [min, extra] elongation along lean
@@ -339,7 +340,7 @@ function spawnBloom(x, y, r, pc, level, delay, quality = 1) {
   const [stMin, stVar] = P("stretch");
   const stretch = stMin + Math.random() * stVar;
   const ca = Math.cos(flow.a), sa = Math.sin(flow.a);
-  const poly = deform(basePolygon(r), r * P("deformInit"), 4).map(p => {
+  const poly = deform(basePolygon(r), r * P("deformInit"), P("deformDepth")).map(p => {
     const ex = p.x * stretch, ey = p.y * (0.82 + Math.random() * 0.06);
     return { x: ex * ca - ey * sa, y: ex * sa + ey * ca, v: p.v };
   });
