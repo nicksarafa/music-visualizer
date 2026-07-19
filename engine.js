@@ -12,6 +12,57 @@
 const SKINS = {};
 let SKIN = null;   // active skin object
 
+// Material and movement are deliberately independent. A skin decides how
+// pigment behaves; a composition decides how music travels from the center.
+const COMPOSITIONS = [
+  {
+    id: "radiant-heart", label: "radiant heart", gesture: "ray",
+    note: "clear rays open from a small pulse into the edges",
+  },
+  {
+    id: "golden-garden", label: "golden garden", gesture: "petal",
+    note: "a phyllotaxis bloom grows note by note around the center",
+  },
+  {
+    id: "orphic-rose", label: "orphic rose", gesture: "arc",
+    note: "harmonic petals fold color and rhythm into a turning rose",
+  },
+  {
+    id: "velvet-fan", label: "velvet fan", gesture: "fan",
+    note: "mirrored gestures open with the drama of a stage curtain",
+  },
+  {
+    id: "jazz-ribbon", label: "jazz ribbon", gesture: "ribbon",
+    note: "a loose lissajous line phrases the song like handwriting",
+  },
+  {
+    id: "color-tide", label: "color tide", gesture: "ripple",
+    note: "concentric waves carry quiet color across the whole field",
+  },
+  {
+    id: "cathedral", label: "cathedral", gesture: "branch",
+    note: "symmetrical branches rise from one luminous central point",
+  },
+  {
+    id: "constellation", label: "constellation", gesture: "constellation",
+    note: "seeded paths find distant points and leave a musical sky map",
+  },
+  {
+    id: "afterimage", label: "afterimage", gesture: "wave",
+    note: "opposing waves remember each phrase in slow counterpoint",
+  },
+  {
+    id: "slow-orbit", label: "slow orbit", gesture: "spiral",
+    note: "the song assembles itself outward as one patient galaxy",
+  },
+];
+const COMPOSITION_BY_ID = Object.fromEntries(COMPOSITIONS.map(c => [c.id, c]));
+let COMPOSITION = COMPOSITIONS[0];
+const compositionState = {
+  event: 0, seed: 0x51f15e, lastAt: 0, lastRoot: -1,
+  previousEnergy: 0, energyEma: 0, lastScore: null,
+};
+
 // engine defaults; skins override any subset via skin.params
 const DEFAULT_PARAMS = {
   blend: "multiply",        // paint canvas mix-blend-mode
@@ -43,57 +94,14 @@ const DEFAULT_PARAMS = {
 
 function P(key) { return (SKIN && SKIN.params && key in SKIN.params) ? SKIN.params[key] : DEFAULT_PARAMS[key]; }
 
-// a painted swatch preview for the gallery: paper, three strokes of the
-// skin's palette, one drip
-function paintSwatch(canvas, skin) {
-  const g = canvas.getContext("2d");
-  const w = canvas.width, h = canvas.height;
-  const p = key => (skin.params && key in skin.params) ? skin.params[key] : DEFAULT_PARAMS[key];
-  g.fillStyle = p("paperHex");
-  g.fillRect(0, 0, w, h);
-  g.globalCompositeOperation = p("blend") === "screen" ? "screen" : "multiply";
-  const col = skin.color || defaultColor;
-  const swatchPcs = [0, 7, 9];   // C, G, A — a familiar family
-  swatchPcs.forEach((pc, i) => {
-    const cx = w * (0.22 + i * 0.28) + Math.sin(i * 7 + 1) * 3;
-    const cy = h * (0.4 + Math.sin(i * 5) * 0.12);
-    const r = h * 0.22;
-    for (let k = 0; k < 7; k++) {
-      g.fillStyle = col(pc, 0.11, i * 3.7 + k, 1, 0);
-      g.beginPath();
-      g.ellipse(cx + Math.sin(k * 9 + i) * 2, cy + Math.cos(k * 5) * 1.6,
-                r * (0.5 + k * 0.09) * 1.2, r * (0.5 + k * 0.09) * 0.88,
-                i - k * 0.1, 0, Math.PI * 2);
-      p("ringed") ? (g.strokeStyle = g.fillStyle, g.lineWidth = 1, g.stroke()) : g.fill();
-    }
-    if (i === 1) {
-      g.strokeStyle = col(pc, 0.3, 2, 1, 0);
-      g.lineWidth = 1.6;
-      g.beginPath();
-      g.moveTo(cx, cy + r * 0.5);
-      g.quadraticCurveTo(cx + 2, cy + r * 1.4, cx - 1, h * 0.92);
-      g.stroke();
-    }
-  });
-}
-
 function registerSkin(skin) {
   SKINS[skin.name] = skin;
-  const gal = document.getElementById("skinGallery");
-  if (gal && !gal.querySelector(`[data-skin="${skin.name}"]`)) {
-    const btn = document.createElement("button");
-    btn.className = "swatch";
-    btn.dataset.skin = skin.name;
-    btn.title = skin.name;
-    const cv = document.createElement("canvas");
-    cv.width = 104; cv.height = 56;
-    paintSwatch(cv, skin);
-    const label = document.createElement("span");
-    label.textContent = skin.name;
-    btn.appendChild(cv);
-    btn.appendChild(label);
-    btn.addEventListener("click", () => setSkin(skin.name));
-    gal.appendChild(btn);
+  const select = document.getElementById("skinSelect");
+  if (select && !select.querySelector(`option[value="${skin.name}"]`)) {
+    const option = document.createElement("option");
+    option.value = skin.name;
+    option.textContent = skin.name;
+    select.appendChild(option);
   }
 }
 
@@ -108,8 +116,8 @@ function setSkin(name, { keepPaint = false } = {}) {
     paintC.style.mixBlendMode = P("blend");
     makeGrain();
   };
-  document.querySelectorAll("#skinGallery .swatch").forEach(b =>
-    b.classList.toggle("on", b.dataset.skin === name));
+  const select = document.getElementById("skinSelect");
+  if (select) select.value = name;
   try { localStorage.setItem("pigment-skin", name); } catch (e) {}
   if (keepPaint || !SKIN) { apply(); return; }
   // the old painting dissolves rather than vanishing
@@ -125,7 +133,33 @@ function setSkin(name, { keepPaint = false } = {}) {
   }, 720);
 }
 
-window.PIGMENT = { registerSkin, setSkin, SKINS, helpers: { pcHue: (...a) => pcHue(...a), gauss: (...a) => gauss(...a) } };
+function resetCompositionState() {
+  compositionState.event = 0;
+  compositionState.lastAt = 0;
+  compositionState.lastRoot = -1;
+  compositionState.previousEnergy = 0;
+  compositionState.energyEma = 0;
+  compositionState.lastScore = null;
+  flow.a = 0;
+}
+
+function setComposition(id, { keepPaint = false } = {}) {
+  const next = COMPOSITION_BY_ID[id];
+  if (!next || (COMPOSITION.id === id && !keepPaint)) return;
+  COMPOSITION = next;
+  resetCompositionState();
+  const select = document.getElementById("compositionSelect");
+  const note = document.getElementById("compositionNote");
+  if (select) select.value = id;
+  if (note) note.textContent = next.note;
+  try { localStorage.setItem("pigment-composition", id); } catch (e) {}
+  if (!keepPaint) clearPainting();
+}
+
+window.PIGMENT = {
+  registerSkin, setSkin, setComposition, SKINS, COMPOSITIONS,
+  helpers: { pcHue: (...a) => pcHue(...a), gauss: (...a) => gauss(...a) },
+};
 
 /* ---------------- canvases ---------------- */
 
@@ -161,7 +195,9 @@ function makeGrain() {
 function clearPainting() {
   pctx.clearRect(0, 0, W, H);
   blooms.length = 0; drips.length = 0; glosses.length = 0;
-  threads.length = 0; recentPoints.length = 0;
+  threads.length = 0; gestures.length = 0; originPulses.length = 0;
+  recentPoints.length = 0;
+  resetCompositionState();
 }
 
 function resize() {
@@ -289,14 +325,297 @@ function tracePoly(ctx, pts, x, y, s) {
   ctx.closePath();
 }
 
+/* ---------------- composition ---------------- */
+
+function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+// Small deterministic hash. Composition remains reproducible for the same
+// session seed, event number, and dominant pitch while paint edges stay alive.
+function hash01(a, b = 0, c = 0) {
+  let h = (a ^ Math.imul(b + 1, 0x9e3779b1) ^ Math.imul(c + 7, 0x85ebca6b)) >>> 0;
+  h ^= h >>> 16; h = Math.imul(h, 0x7feb352d);
+  h ^= h >>> 15; h = Math.imul(h, 0x846ca68b);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
+// The expression score is not a judgment of the song. It is a compositional
+// mixer: impact, harmonic richness, tonal travel, breath, and pitch clarity.
+// Quiet music can still score highly through space and harmonic intention.
+function scoreExpression(pcs, level) {
+  const now = performance.now();
+  const root = pcs[0].pc;
+  const totalW = pcs.reduce((sum, p) => sum + p.w, 0) || 1;
+  const clarity = clamp01(pcs[0].w / totalW);
+  const interval = pcs.length > 1
+    ? Math.min(6, Math.abs(((pcs[1].pc - root + 6) % 12) - 6)) / 6
+    : 0;
+  const richness = pcs.length > 1 ? 0.58 + interval * 0.32 : 0.32;
+  const lastFifth = compositionState.lastRoot < 0 ? root : (compositionState.lastRoot * 7) % 12;
+  const nextFifth = (root * 7) % 12;
+  const fifthTravel = Math.min(
+    Math.abs(nextFifth - lastFifth),
+    12 - Math.abs(nextFifth - lastFifth),
+  ) / 6;
+  const breath = compositionState.lastAt
+    ? clamp01((now - compositionState.lastAt) / 4200)
+    : 1;
+  compositionState.energyEma = compositionState.event
+    ? compositionState.energyEma * 0.72 + level * 0.28
+    : level;
+  const dynamicMotion = clamp01(
+    Math.abs(level - compositionState.previousEnergy) * 2.4 +
+    Math.abs(level - compositionState.energyEma) * 1.2,
+  );
+  const impact = clamp01(level);
+  const total = clamp01(
+    impact * 0.30 + richness * 0.20 + fifthTravel * 0.18 +
+    breath * 0.14 + (clarity * 0.65 + dynamicMotion * 0.35) * 0.18,
+  );
+  const score = { impact, richness, tonalTravel: fifthTravel, breath, clarity, dynamicMotion, total };
+  compositionState.lastAt = now;
+  compositionState.lastRoot = root;
+  compositionState.previousEnergy = level;
+  compositionState.lastScore = score;
+  return score;
+}
+
+function compositionPlacement(pcs, score) {
+  const n = compositionState.event++;
+  const root = pcs[0].pc;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const u = hash01(compositionState.seed, n, root);
+  const v = hash01(compositionState.seed ^ 0xa341316c, n, root);
+  const coverage = ((n * 7) % 17) / 16;
+  const reach = clamp01(0.16 + coverage * 0.72 + score.total * 0.20);
+  const pitchA = (pcHue(root) / 360) * Math.PI * 2;
+  let nx = 0, ny = 0, angle = pitchA;
+
+  switch (COMPOSITION.id) {
+    case "golden-garden": {
+      angle = n * golden + root * 0.055;
+      const r = 0.16 + 0.82 * Math.sqrt(((n * 5) % 23) / 22);
+      nx = Math.cos(angle) * r; ny = Math.sin(angle) * r;
+      break;
+    }
+    case "orphic-rose": {
+      const t = n * 0.49 + pitchA * 0.35;
+      const r = 0.2 + 0.78 * Math.abs(Math.cos(3 * t));
+      angle = t;
+      nx = Math.cos(t) * r; ny = Math.sin(t) * r;
+      break;
+    }
+    case "velvet-fan": {
+      const side = n % 2 ? 1 : -1;
+      const band = (Math.floor(n / 2) % 7) / 6;
+      angle = -Math.PI / 2 + side * (0.13 + band * 1.12);
+      const r = 0.34 + band * 0.62;
+      nx = Math.cos(angle) * r; ny = Math.sin(angle) * r;
+      break;
+    }
+    case "jazz-ribbon": {
+      const t = n * 0.46 + pitchA * 0.18;
+      nx = Math.sin(3 * t + 0.45) * 0.94;
+      ny = Math.sin(2 * t) * 0.9;
+      angle = Math.atan2(ny, nx);
+      break;
+    }
+    case "color-tide": {
+      const ring = 0.2 + ((n % 7) / 6) * 0.76;
+      angle = pitchA + n * 0.72;
+      nx = Math.cos(angle) * ring; ny = Math.sin(angle) * ring;
+      break;
+    }
+    case "cathedral": {
+      const side = n % 2 ? 1 : -1;
+      const tier = (Math.floor(n / 2) % 6) / 5;
+      angle = -Math.PI / 2 + side * (0.18 + tier * 0.72);
+      const r = 0.34 + tier * 0.62;
+      nx = Math.cos(angle) * r; ny = Math.sin(angle) * r;
+      break;
+    }
+    case "constellation": {
+      angle = Math.PI * 2 * u;
+      const r = 0.22 + 0.76 * v;
+      nx = Math.cos(angle) * r; ny = Math.sin(angle) * r;
+      break;
+    }
+    case "afterimage": {
+      const side = n % 2 ? 1 : -1;
+      angle = -0.36 + (Math.floor(n / 2) % 5) * 0.18 + (side < 0 ? Math.PI : 0);
+      const r = 0.42 + ((n * 3) % 7) / 6 * 0.54;
+      nx = Math.cos(angle) * r; ny = Math.sin(angle) * r;
+      break;
+    }
+    case "slow-orbit": {
+      angle = n * 0.68 + pitchA * 0.16;
+      const r = 0.13 + ((n % 18) / 17) * 0.84;
+      nx = Math.cos(angle) * r; ny = Math.sin(angle) * r;
+      break;
+    }
+    case "radiant-heart":
+    default: {
+      angle = pitchA + n * golden * 0.72 + (u - 0.5) * 0.16;
+      nx = Math.cos(angle) * reach; ny = Math.sin(angle) * reach;
+      break;
+    }
+  }
+
+  const margin = 0.045;
+  const x = Math.max(W * margin, Math.min(W * (1 - margin), W * 0.5 + nx * W * 0.475));
+  const y = Math.max(H * margin, Math.min(H * (1 - margin), H * 0.5 + ny * H * 0.475));
+  return { x, y, angle, gesture: COMPOSITION.gesture, seed: u, score };
+}
+
+function samplePath(fn, steps = 34) {
+  const path = [];
+  for (let i = 0; i <= steps; i++) path.push(fn(i / steps));
+  return path;
+}
+
+function buildGesturePaths(target) {
+  const cx = W * 0.5, cy = H * 0.5;
+  const dx = target.x - cx, dy = target.y - cy;
+  const len = Math.max(1, Math.hypot(dx, dy));
+  const px = -dy / len, py = dx / len;
+  const bend = Math.min(W, H) * (0.045 + target.score.total * 0.055);
+  const paths = [];
+  const line = (wave, turns = 1) => samplePath(t => {
+    const envelope = Math.sin(Math.PI * t);
+    const off = wave * Math.sin(t * Math.PI * 2 * turns + target.seed * 5) * envelope;
+    return { x: cx + dx * t + px * off, y: cy + dy * t + py * off };
+  });
+
+  switch (target.gesture) {
+    case "petal":
+      paths.push(samplePath(t => ({
+        x: cx + dx * t + px * Math.sin(Math.PI * t) * bend,
+        y: cy + dy * t + py * Math.sin(Math.PI * t) * bend,
+      })));
+      paths.push(samplePath(t => ({
+        x: cx + dx * t - px * Math.sin(Math.PI * t) * bend * 0.72,
+        y: cy + dy * t - py * Math.sin(Math.PI * t) * bend * 0.72,
+      })));
+      break;
+    case "arc":
+      paths.push(line(bend * 0.9, 0.5));
+      break;
+    case "fan": {
+      paths.push(line(bend * 0.6, 0.5));
+      const mirrorX = W - target.x;
+      const mdx = mirrorX - cx;
+      paths.push(samplePath(t => ({
+        x: cx + mdx * t - px * Math.sin(Math.PI * t) * bend * 0.45,
+        y: cy + dy * t + py * Math.sin(Math.PI * t) * bend * 0.45,
+      })));
+      break;
+    }
+    case "ribbon":
+      paths.push(line(bend * 0.82, 2.25));
+      paths.push(line(-bend * 0.34, 2.25));
+      break;
+    case "ripple": {
+      paths.push(line(bend * 0.18, 1));
+      const rx = Math.max(Math.min(W, H) * 0.08, Math.abs(dx));
+      const ry = Math.max(Math.min(W, H) * 0.06, Math.abs(dy));
+      paths.push(samplePath(t => {
+        const a = target.angle + t * Math.PI * 2;
+        return { x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry };
+      }, 56));
+      break;
+    }
+    case "branch": {
+      const trunk = line(bend * 0.18, 0.5);
+      paths.push(trunk);
+      const fork = trunk[Math.floor(trunk.length * 0.48)];
+      for (const side of [-1, 1]) {
+        paths.push(samplePath(t => ({
+          x: fork.x + dx * 0.42 * t + px * side * bend * 0.7 * t,
+          y: fork.y + dy * 0.42 * t + py * side * bend * 0.7 * t,
+        }), 22));
+      }
+      break;
+    }
+    case "constellation": {
+      const anchors = [{ x: cx, y: cy }];
+      for (let i = 1; i < 5; i++) {
+        const t = i / 5;
+        const j = (hash01(compositionState.seed, compositionState.event, i) - 0.5) * bend * 1.5;
+        anchors.push({ x: cx + dx * t + px * j, y: cy + dy * t + py * j });
+      }
+      anchors.push({ x: target.x, y: target.y });
+      paths.push(anchors);
+      break;
+    }
+    case "wave":
+      paths.push(line(bend * 0.72, 1.5));
+      break;
+    case "spiral":
+      paths.push(samplePath(t => {
+        const a = target.angle - (1 - t) * Math.PI * 2.25;
+        const r = len * t;
+        return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r };
+      }, 48));
+      break;
+    case "ray":
+    default:
+      paths.push(line(bend * 0.2, 1.5));
+      break;
+  }
+  return paths;
+}
+
 /* ---------------- paint world ---------------- */
 
 const blooms = [];
 const drips = [];
 const glosses = [];
 const threads = [];
+const gestures = [];
+const originPulses = [];
 const recentPoints = [];
 const flow = { a: 0 };
+
+function spawnCompositionGesture(target, pc) {
+  const now = performance.now();
+  const paths = buildGesturePaths(target);
+  paths.forEach((path, i) => {
+    gestures.push({
+      path, pc, seed: target.seed + i * 0.17,
+      alpha: Math.min(0.34, P("threadAlpha") * (0.38 + target.score.total * 0.42)),
+      width: (0.9 + target.score.impact * 2.2) * DPR * (i ? 0.68 : 1),
+      born: now + i * 55,
+      dur: 650 + path.length * 10 + (1 - target.score.impact) * 420,
+      drawn: 0,
+    });
+  });
+  if (gestures.length > 24) gestures.splice(0, gestures.length - 24);
+  originPulses.push({ pc, seed: target.seed, score: target.score.total, born: now, life: 1200 });
+  if (originPulses.length > 8) originPulses.shift();
+}
+
+function stepGestures(now) {
+  for (let i = gestures.length - 1; i >= 0; i--) {
+    const g = gestures[i];
+    const t = (now - g.born) / g.dur;
+    if (t < 0) continue;
+    const eased = 1 - Math.pow(1 - Math.min(1, t), 3);
+    const target = Math.max(1, Math.floor(eased * (g.path.length - 1)));
+    if (target > g.drawn) {
+      pctx.strokeStyle = pigmentColor(g.pc, g.alpha, g.seed);
+      pctx.lineWidth = g.width * (1 - eased * 0.28);
+      pctx.lineCap = "round";
+      pctx.lineJoin = "round";
+      pctx.beginPath();
+      const start = g.path[Math.max(0, g.drawn - 1)];
+      pctx.moveTo(start.x, start.y);
+      for (let p = g.drawn; p <= target; p++) pctx.lineTo(g.path[p].x, g.path[p].y);
+      pctx.stroke();
+      g.drawn = target + 1;
+    }
+    if (t >= 1) gestures.splice(i, 1);
+  }
+}
 
 function rememberPoint(x, y, pc) {
   recentPoints.push({ x, y, pc });
@@ -370,35 +689,18 @@ function spawnStrike(pcs, level) {
   const hasMaj3 = pcs.some(p => p.pc === (root + 4) % 12);
   const quality = hasMin3 && !hasMaj3 ? 0 : 1;
 
-  let x = 0, y = 0;
+  const expression = scoreExpression(pcs, level);
+  const target = compositionPlacement(pcs, expression);
+  const x = target.x, y = target.y;
   const minD = Math.min(W, H);
-  if (P("placement") === "orbit") {
-    // strikes ride a slowly turning spiral arm around the center
-    flow.orbitA = (flow.orbitA || 0) + 0.55 + Math.random() * 0.25;
-    const turns = (flow.orbitA % (Math.PI * 5.2)) / (Math.PI * 5.2);
-    const rad = minD * (0.08 + turns * 0.42);
-    x = W * 0.5 + Math.cos(flow.orbitA) * rad * (W / H > 1.4 ? 1.25 : 1)
-      + gauss() * minD * 0.03;
-    y = H * 0.5 + Math.sin(flow.orbitA) * rad + gauss() * minD * 0.03;
-    x = Math.max(W * 0.05, Math.min(W * 0.95, x));
-    y = Math.max(H * 0.05, Math.min(H * 0.95, y));
-    flow.a = flow.orbitA + Math.PI / 2 + gauss() * 0.2;
-  } else {
-    const recent = recentPoints.slice(-6);
-    for (let attempt = 0; attempt < 5; attempt++) {
-      x = W * (0.07 + Math.random() * 0.86);
-      y = H * (0.07 + Math.random() * 0.86);
-      if (recent.every(p => Math.hypot(p.x - x, p.y - y) > minD * 0.27)) break;
-    }
-    const prev = recentPoints[recentPoints.length - 1];
-    flow.a = prev ? Math.atan2(y - prev.y, x - prev.x) + gauss() * 0.4
-                  : Math.random() * Math.PI * 2;
-  }
+  flow.a = target.angle + gauss() * 0.14;
   if (P("leanMode") === "vertical") flow.a = Math.PI / 2 + gauss() * 0.12;
+  spawnCompositionGesture(target, pcs[0].pc);
   spawnThreads(x, y, pcs[0].pc);
   rememberPoint(x, y, pcs[0].pc);
 
-  const sizeBase = (0.03 + ctl.size * 0.065) * minD * (0.72 + Math.random() * 0.6) * P("sizeMul");
+  const sizeBase = (0.03 + ctl.size * 0.065) * minD *
+    (0.68 + Math.random() * 0.48) * P("sizeMul") * (0.84 + expression.total * 0.38);
   const total = pcs.reduce((s, p) => s + p.w, 0) || 1;
 
   pcs.forEach((p, i) => {
@@ -579,6 +881,20 @@ function stepGloss(now) {
     wctx.beginPath();
     wctx.arc(gx, gy, g.r * 0.9, 0, Math.PI * 2);
     wctx.fill();
+  }
+  for (let i = originPulses.length - 1; i >= 0; i--) {
+    const pulse = originPulses[i];
+    const t = (now - pulse.born) / pulse.life;
+    if (t < 0) continue;
+    if (t >= 1) { originPulses.splice(i, 1); continue; }
+    const eased = 1 - Math.pow(1 - t, 4);
+    const r = Math.min(W, H) * (0.018 + eased * (0.15 + pulse.score * 0.12));
+    const alpha = (1 - t) * (0.13 + pulse.score * 0.12);
+    wctx.strokeStyle = pigmentColor(pulse.pc, alpha, pulse.seed);
+    wctx.lineWidth = (1.1 + pulse.score * 1.8) * DPR * (1 - t * 0.45);
+    wctx.beginPath();
+    wctx.ellipse(W * 0.5, H * 0.5, r * (W > H ? 1.18 : 1), r, 0, 0, Math.PI * 2);
+    wctx.stroke();
   }
 }
 
@@ -808,6 +1124,7 @@ function frame(now) {
   lastFrame = now;
   if (demo.on) scheduleDemo();
   analyse(now);
+  stepGestures(now);
   stepBlooms(now);
   stepThreads(now);
   let remaining = Math.min(raw, 1.5);
@@ -841,6 +1158,15 @@ document.getElementById("startDemo").addEventListener("click", () => {
 document.getElementById("panelToggle").addEventListener("click", () => {
   document.body.classList.toggle("panel-open");
 });
+const compositionSelect = document.getElementById("compositionSelect");
+for (const composition of COMPOSITIONS) {
+  const option = document.createElement("option");
+  option.value = composition.id;
+  option.textContent = composition.label;
+  compositionSelect.appendChild(option);
+}
+compositionSelect.addEventListener("change", e => setComposition(e.target.value));
+document.getElementById("skinSelect").addEventListener("change", e => setSkin(e.target.value));
 document.getElementById("srcMic").addEventListener("click", startMic);
 document.getElementById("srcDemo").addEventListener("click", startDemo);
 document.getElementById("srcOff").addEventListener("click", () => {
@@ -943,6 +1269,8 @@ document.addEventListener("keydown", e => {
   if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
   const names = Object.keys(SKINS);
   const idx = SKIN ? names.indexOf(SKIN.name) : 0;
+  const movements = COMPOSITIONS.map(c => c.id);
+  const movementIdx = movements.indexOf(COMPOSITION.id);
   switch (e.key) {
     case "c": clearPainting(); break;
     case "s": savePainting(); break;
@@ -951,6 +1279,8 @@ document.addEventListener("keydown", e => {
     case "h": document.body.classList.toggle("panel-open"); break;
     case "[": setSkin(names[(idx - 1 + names.length) % names.length]); break;
     case "]": setSkin(names[(idx + 1) % names.length]); break;
+    case "{": setComposition(movements[(movementIdx - 1 + movements.length) % movements.length]); break;
+    case "}": setComposition(movements[(movementIdx + 1) % movements.length]); break;
     case "Escape":
       if (document.body.classList.contains("focus-mode")) toggleFocus();
       break;
@@ -966,20 +1296,28 @@ requestAnimationFrame(frame);
 // scripts have run — DOMContentLoaded, not load, to avoid a light-theme flash
 window.addEventListener("DOMContentLoaded", () => {
   let name = null;
+  let composition = null;
   try { name = localStorage.getItem("pigment-skin"); } catch (e) {}
+  try { composition = localStorage.getItem("pigment-composition"); } catch (e) {}
   if (!name || !SKINS[name]) name = Object.keys(SKINS)[0];
+  if (!composition || !COMPOSITION_BY_ID[composition]) composition = COMPOSITIONS[0].id;
   if (name) setSkin(name, { keepPaint: true });
+  setComposition(composition, { keepPaint: true });
 });
 
 /* debug handle for automated visual testing */
 window.PIG = {
-  spawnStrike, spawnBloom, blooms, drips, glosses, threads, ctl,
+  spawnStrike, spawnBloom, blooms, drips, glosses, threads, gestures, ctl,
+  score: () => compositionState.lastScore,
+  composition: () => COMPOSITION,
+  setComposition,
   clear: clearPainting,
   render(ms) {
     let vnow = performance.now();
     const end = vnow + ms;
     while (vnow < end) {
       vnow += 1000 / 60;
+      stepGestures(vnow);
       stepBlooms(vnow);
       stepThreads(vnow);
       stepDrips(vnow, 1 / 60);
@@ -1014,6 +1352,7 @@ window.PIG = {
       const n0 = before();
       analyse(now);
       if (before() > n0) spawns++;
+      stepGestures(now);
       stepBlooms(now);
       stepThreads(now);
       stepDrips(now, 1 / 30);

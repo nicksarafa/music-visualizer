@@ -134,23 +134,31 @@
   }
   .ctl label b { font-weight: 450; color: var(--ink); }
 
-  #skinGallery {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  .select-shell { position: relative; }
+  .select-shell::after {
+    content: "⌄";
+    position: absolute; right: 1px; top: 50%;
+    transform: translateY(-56%);
+    color: var(--ink-soft); font-size: 15px;
+    pointer-events: none;
   }
-  .swatch {
-    background: none; border: 1px solid var(--hairline); border-radius: 7px;
-    padding: 0; cursor: pointer; overflow: hidden;
-    display: flex; flex-direction: column;
-    transition: border-color 0.3s var(--ease), transform 0.3s var(--ease);
+  .art-select {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; padding: 8px 24px 8px 0;
+    background: transparent; color: var(--ink);
+    border: none; border-bottom: 1px solid var(--hairline);
+    border-radius: 0; cursor: pointer;
+    font: 15px/1.35 "Sorts Mill Goudy", Georgia, serif;
+    transition: border-color 0.3s var(--ease);
   }
-  .swatch:hover { border-color: var(--ink-soft); transform: translateY(-1px); }
-  .swatch.on { border-color: var(--ink); }
-  .swatch canvas { width: 100%; height: 54px; display: block; object-fit: cover; }
-  .swatch span {
-    font-size: 11.5px; color: var(--ink-soft); padding: 4px 0 5px;
-    text-align: center; letter-spacing: 0.02em;
+  .art-select:hover { border-bottom-color: var(--ink-soft); }
+  .art-select:focus-visible {
+    outline: 1px solid var(--ink); outline-offset: 4px;
   }
-  .swatch.on span { color: var(--ink); }
+  .ctl-note {
+    min-height: 2.8em;
+    color: var(--ink-soft); font-size: 11.5px; line-height: 1.4;
+  }
 
   #keysHint {
     margin-top: auto; padding-top: 18px;
@@ -242,8 +250,18 @@
   <div id="panelTitle">controls</div>
 
   <div class="ctl">
-    <label>skin</label>
-    <div id="skinGallery"></div>
+    <label for="compositionSelect">movement</label>
+    <div class="select-shell">
+      <select id="compositionSelect" class="art-select"></select>
+    </div>
+    <p id="compositionNote" class="ctl-note"></p>
+  </div>
+
+  <div class="ctl">
+    <label for="skinSelect">paint</label>
+    <div class="select-shell">
+      <select id="skinSelect" class="art-select"></select>
+    </div>
   </div>
 
   <div class="ctl">
@@ -298,7 +316,7 @@
     <button class="bare" id="btnRecord">record video</button>
   </div>
 
-  <div id="keysHint">c clear &nbsp;·&nbsp; s save &nbsp;·&nbsp; r record &nbsp;·&nbsp; f focus &nbsp;·&nbsp; [ ] skins</div>
+  <div id="keysHint">c clear &nbsp;·&nbsp; s save &nbsp;·&nbsp; r record &nbsp;·&nbsp; f focus &nbsp;·&nbsp; [ ] paint</div>
 </div>
 
 <script src="engine.js"></script>
