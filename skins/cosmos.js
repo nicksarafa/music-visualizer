@@ -19,7 +19,7 @@ PIGMENT.registerSkin({
   params: {
     blend: "screen",
     paperHex: "#0b0714",
-    sizeMul: 1.35,
+    sizeMul: 1.1,
     layerCount: [22, 26],
     layerAlphaBase: 0.012,
     layerAlphaVar: 0.010,
@@ -34,11 +34,11 @@ PIGMENT.registerSkin({
     dripBead: true,
     threadAlpha: 0.4,
     threadNodes: true,
-    grain: { base: 255, spread: 0, warm: false, alpha: 26, density: 0.004 },
+    grain: { base: 255, spread: 0, warm: false, alpha: 65, density: 0.008 },
   },
   color(pc, alpha, seed, quality = 1, hueOff = 0) {
     const hue = (PIGMENT.helpers.pcHue(pc) + hueOff + 360) % 360;
-    const l = 0.55 + Math.sin(seed * 12.9898) * 0.10 - (1 - quality) * 0.08;
+    const l = 0.62 + Math.sin(seed * 12.9898) * 0.10 - (1 - quality) * 0.08;
     const c = 0.20 + Math.sin(seed * 78.233) * 0.03;
     return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${hue.toFixed(1)} / ${alpha.toFixed(3)})`;
   },
