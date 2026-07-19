@@ -136,7 +136,7 @@ to the painter, never the quality of the song.
 
 The standard 40-second built-in demo was used because the local evaluation WAVs were unavailable.
 Each new material was tested at 2560 x 1353 with Radiant Heart, plus Jazz Ribbon spot checks on the
-dark materials. The movement selector exposes all 10 systems and the paint selector exposes all 21
+dark materials. The movement selector exposed all 10 systems and the paint selector exposed all 21
 materials. No browser console errors were present.
 
 | iter | what | verdict | 1 breath | 2 flow | 3 canvas | 4 color | 5 paint | 6 respond | 7 chrome | notes |
@@ -163,3 +163,15 @@ placement.
 verified pressure/viscosity particles, star-rosette gestures, colliding grains, and branching growth.
 This is a code-path and responsiveness smoke test only. Do not convert the dashes above into scores
 until all four movements have been judged from standard-protocol screenshots.
+
+## Aurelia material expansion (55)
+
+The paint selector now exposes 22 materials. Aurelia was judged live with Liquid Bloom in the
+built-in demo and exercised programmatically against all four matter movements using pitch-class
+events from both local WAVs. Browser inspection found no application errors. Scores below come
+from the live 7.6-second formation screenshot, not a full 40-second standard render, so the canvas
+coverage score remains deliberately conservative.
+
+| iter | what | verdict | 1 breath | 2 flow | 3 canvas | 4 color | 5 paint | 6 respond | 7 chrome | notes |
+|------|------|---------|----------|--------|----------|---------|---------|-----------|----------|-------|
+| 55 | Aurelia nacre material | shipped | 10 | 9 | 8.5 | 9.5 | 9 | 10 | 10 | luminous origin, curled pressure fans, clipped interference, spectral capillaries, electrum leaf; full 40-second canvas score still due |

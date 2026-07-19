@@ -110,6 +110,7 @@ const DEFAULT_PARAMS = {
   interferenceAlpha: 0,    // thin-film color bands inside nacre-like strokes
   leafAlpha: 0,             // metallic mineral fragments embedded in a stroke
   causticAlpha: 0,          // moving spectral highlight on the temporary wet layer
+  movementTraceAlpha: 1,    // material response to liquid, sand, and wood solver marks
   grain: { base: 235, spread: 20, warm: true, alpha: 10, density: 0.5, light: false },
 };
 
@@ -728,15 +729,15 @@ function spawnLiquidParticles(target, pc, level) {
   const now = performance.now();
   for (let i = 0; i < count; i++) {
     const spread = (i - (count - 1) * 0.5) / Math.max(1, count - 1);
-    const a = target.angle + spread * 0.5 + gauss() * 0.075;
-    const speed = minD * (0.075 + level * 0.1 + Math.random() * 0.035);
+    const a = target.angle + spread * 0.86 + gauss() * 0.13;
+    const speed = minD * (0.068 + level * 0.092 + Math.random() * 0.052);
     const seedR = Math.random() * minD * 0.018;
     liquidParticles.push({
       x: cx + Math.cos(a) * seedR,
       y: cy + Math.sin(a) * seedR,
       px: cx, py: cy,
-      vx: Math.cos(a) * speed - Math.sin(a) * speed * spread * 0.18,
-      vy: Math.sin(a) * speed + Math.cos(a) * speed * spread * 0.18,
+      vx: Math.cos(a) * speed - Math.sin(a) * speed * spread * 0.28,
+      vy: Math.sin(a) * speed + Math.cos(a) * speed * spread * 0.28,
       r: (1.8 + Math.random() * 2.7 + target.score.impact * 1.2) * DPR,
       pc, seed: target.seed + i * 0.071,
       energy: target.score.total, born: now,
@@ -780,6 +781,7 @@ function stepLiquid(now, dt) {
   }
 
   const cx = W * 0.5, cy = H * 0.5;
+  const minD = Math.min(W, H);
   for (let i = liquidParticles.length - 1; i >= 0; i--) {
     const p = liquidParticles[i];
     const age = (now - p.born) / p.life;
@@ -787,7 +789,11 @@ function stepLiquid(now, dt) {
     p.px = p.x; p.py = p.y;
     const rx = p.x - cx, ry = p.y - cy;
     const rd = Math.max(1, Math.hypot(rx, ry));
-    const vortex = Math.sin(p.seed * 17 + now * 0.00055) * 34 * DPR;
+    // Let pressure become visible only after the fluid has opened away from
+    // the source. This preserves a luminous center instead of repeatedly
+    // varnishing the shared launch point into an opaque spoke.
+    const originFade = clamp01((rd - minD * 0.035) / (minD * 0.16));
+    const vortex = Math.sin(p.seed * 17 + now * 0.00055) * 58 * DPR;
     p.vx += (-ry / rd) * vortex * dt;
     p.vy += (rx / rd) * vortex * dt;
     if (age < 0.24) {
@@ -805,11 +811,12 @@ function stepLiquid(now, dt) {
       p.y = Math.max(p.r, Math.min(H - p.r, p.y)); p.vy *= -0.64;
     }
     const fade = Math.sin(Math.PI * Math.min(1, age));
-    pctx.strokeStyle = pigmentColor(p.pc, 0.018 + fade * 0.028, p.seed);
+    const traceAlpha = P("movementTraceAlpha") * (0.08 + originFade * 0.92);
+    pctx.strokeStyle = pigmentColor(p.pc, (0.018 + fade * 0.028) * traceAlpha, p.seed);
     pctx.lineWidth = p.r * (1.5 + p.energy * 0.7);
     pctx.lineCap = "round";
     pctx.beginPath(); pctx.moveTo(p.px, p.py); pctx.lineTo(p.x, p.y); pctx.stroke();
-    pctx.fillStyle = pigmentAccent(p.pc, 0.018 + fade * 0.022, p.seed + age);
+    pctx.fillStyle = pigmentAccent(p.pc, (0.018 + fade * 0.022) * traceAlpha, p.seed + age);
     pctx.beginPath(); pctx.arc(p.x, p.y, p.r * 0.72, 0, Math.PI * 2); pctx.fill();
   }
 }
@@ -836,9 +843,10 @@ function spawnSandParticles(target, pc, level) {
 
 function settleSandGrain(p, col, cell) {
   p.y = Math.min(H - p.r, sandSurface[col] - p.r);
-  pctx.fillStyle = pigmentColor(p.pc, 0.22, p.seed);
+  const traceAlpha = P("movementTraceAlpha");
+  pctx.fillStyle = pigmentColor(p.pc, 0.22 * traceAlpha, p.seed);
   pctx.beginPath(); pctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); pctx.fill();
-  pctx.fillStyle = pigmentAccent(p.pc, 0.11, p.seed + 0.4);
+  pctx.fillStyle = pigmentAccent(p.pc, 0.11 * traceAlpha, p.seed + 0.4);
   pctx.beginPath(); pctx.arc(p.x - p.r * 0.25, p.y - p.r * 0.3, p.r * 0.34, 0, Math.PI * 2); pctx.fill();
   sandSurface[col] = Math.max(H * 0.48, sandSurface[col] - Math.max(p.r * 0.56, cell * 0.11));
 }
@@ -899,7 +907,7 @@ function stepSand(now, dt) {
         continue;
       }
     }
-    pctx.fillStyle = pigmentColor(p.pc, 0.07, p.seed + age);
+    pctx.fillStyle = pigmentColor(p.pc, 0.07 * P("movementTraceAlpha"), p.seed + age);
     pctx.beginPath(); pctx.arc(p.x, p.y, p.r * 0.72, 0, Math.PI * 2); pctx.fill();
   }
 }
@@ -932,7 +940,7 @@ function finishWoodTip(tip) {
   const r = Math.max(1.2 * DPR, tip.width * 0.72);
   pctx.save();
   pctx.translate(tip.x, tip.y); pctx.rotate(tip.angle);
-  pctx.fillStyle = pigmentAccent(tip.pc, 0.17, tip.seed + tip.ticks);
+  pctx.fillStyle = pigmentAccent(tip.pc, 0.17 * P("movementTraceAlpha"), tip.seed + tip.ticks);
   pctx.beginPath(); pctx.ellipse(r * 0.35, 0, r, r * 0.42, 0, 0, Math.PI * 2); pctx.fill();
   pctx.restore();
 }
@@ -965,11 +973,12 @@ function stepWood(now) {
     tip.y += Math.sin(tip.angle) * tip.step;
     tip.ticks++; tip.energy--; tip.width *= 0.986;
 
-    pctx.strokeStyle = pigmentColor(tip.pc, 0.14, tip.seed + tip.ticks * 0.01);
+    const traceAlpha = P("movementTraceAlpha");
+    pctx.strokeStyle = pigmentColor(tip.pc, 0.14 * traceAlpha, tip.seed + tip.ticks * 0.01);
     pctx.lineWidth = Math.max(0.7 * DPR, tip.width);
     pctx.lineCap = "round";
     pctx.beginPath(); pctx.moveTo(oldX, oldY); pctx.lineTo(tip.x, tip.y); pctx.stroke();
-    pctx.strokeStyle = pigmentAccent(tip.pc, 0.055, tip.seed + 0.5);
+    pctx.strokeStyle = pigmentAccent(tip.pc, 0.055 * traceAlpha, tip.seed + 0.5);
     pctx.lineWidth = Math.max(0.35 * DPR, tip.width * 0.22);
     pctx.beginPath(); pctx.moveTo(oldX, oldY); pctx.lineTo(tip.x, tip.y); pctx.stroke();
     woodNodes.push({ x: tip.x, y: tip.y, branch: tip.branch, tick: tip.ticks });

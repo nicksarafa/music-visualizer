@@ -206,4 +206,30 @@ for (const movement of MOVEMENTS) {
   }
 }
 
-console.log(JSON.stringify({ ok: true, results }, null, 2));
+vm.runInContext(fs.readFileSync(path.join(ROOT, "skins/aurelia.js"), "utf8"), sandbox, {
+  filename: "skins/aurelia.js",
+});
+sandbox.PIGMENT.setSkin("aurelia", { keepPaint: true });
+const skinResults = [];
+for (const movement of MOVEMENTS) {
+  for (const track of TRACKS) {
+    sandbox.PIG.clear();
+    sandbox.PIG.setComposition(movement, { keepPaint: true });
+    const beforeDraws = { ...drawCounts };
+    for (const event of sequences[track]) sandbox.PIG.spawnStrike(event.pcs, event.level);
+    const spawned = sandbox.PIG.materialStats();
+    sandbox.PIG.render(2200);
+    const after = sandbox.PIG.materialStats();
+    const strokes = drawCounts.stroke - beforeDraws.stroke;
+    const fills = drawCounts.fill - beforeDraws.fill;
+    assert(spawned.id === "aurelia", `expected aurelia, got ${spawned.id}`);
+    assert(spawned.capillaries > 0, `aurelia spawned no capillary veins for ${movement} / ${track}`);
+    assert(strokes > 100 && fills > 100, `aurelia drew too few marks for ${movement} / ${track}`);
+    skinResults.push({
+      skin: spawned.id, movement, track, events: sequences[track].length,
+      strokes, fills, spawned, after,
+    });
+  }
+}
+
+console.log(JSON.stringify({ ok: true, results, skinResults }, null, 2));

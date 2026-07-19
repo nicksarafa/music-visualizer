@@ -31,6 +31,10 @@ The result should feel meticulously crafted and emotionally legible at room scal
 
 The matter systems translate simulation research into restrained Canvas 2D marks. Liquid uses a compact particle neighborhood inspired by SPH pressure, viscosity, and surface tension. Sacred Rose builds regular star polygons and nested rosettes rather than applying decorative kaleidoscope effects. Living Sand keeps grains discrete, lets them collide, and rolls them down over-steep local slopes. Vitruvian Grove follows the space-colonization idea that branches advance into available space, with gravity deliberately removed so the musical center remains the only root.
 
+## Aurelia material
+
+Aurelia imagines an impossible mineral manuscript still wet in a daylight studio. Each harmonic wash is translucent crushed gemstone. Curved interference bands sit inside the wet silhouette like mother-of-pearl rather than floating above it as decoration. Branching capillary walkers pull spectral veins through the pigment, electrum fragments collect at their ends, and temporary caustics move across the wet layer before drying away. The material quiets the marks made directly by movement solvers so pressure, grain, and growth remain legible without turning the central source opaque. Its spectacle comes from close material observation: nacre, oxidized copper, gold leaf, and water on vellum.
+
 ## Expression score
 
 The engine calculates five normalized signals for every painted event:

@@ -47,6 +47,7 @@ Each paint skin is a small file in `skins/` registered with `PIGMENT.registerSki
 - **pointillist** — optical color assembled from separate touches
 - **cyanotype** — pale photographic traces developing in Prussian blue
 - **ultraviolet** — mineral purple, velvet darkness, and warm metal
+- **aurelia** — mother-of-pearl mineral washes, electrum leaf, capillary veins, and wet caustics
 
 Keyboard: `c` clear, `s` save, `r` record video (with audio), `f` focus mode (fullscreen, chrome hidden), `h` panel, `[` `]` cycle paints, and `{` `}` cycle movements.
 
@@ -59,7 +60,7 @@ To make a new skin, copy any file in `skins/`, change the name and values, and a
 - **Note onsets** are detected by half-wave-rectified spectral flux with an adaptive threshold (plus a pitch-change trigger for legato singing).
 - **Expression score.** Impact, harmonic richness, tonal travel, breath, clarity, and dynamic motion control reach and complexity without assigning value to the song.
 - **Movement** begins at the center as a full-frame wavefront and a tapered route. Traveling stains show the color crossing space before the primary bloom arrives.
-- **Paint** uses recursive deformed polygons, radial spray gradients, oil-like ridges, or stippled dots depending on the selected skin.
+- **Paint** uses recursive deformed polygons, radial spray gradients, oil-like ridges, stippled dots, or clipped nacre interference depending on the selected skin.
 - **Controls** live in a slide-away right panel: source, sensitivity, paint size, bleed, drip, fade, palette rotation, clear, and save (exports the painting as PNG).
 
-Debug/test hooks live on `window.PIG` (spawn strikes programmatically, simulate painting time synchronously, and inspect movement particle counts). Run `node tests/movement-smoke.cjs` to drive the four matter systems with pitch-class events extracted from both local evaluation tracks.
+Debug/test hooks live on `window.PIG` (spawn strikes programmatically, simulate painting time synchronously, and inspect movement and material state). Run `node tests/movement-smoke.cjs` to drive the four matter systems and Aurelia with pitch-class events extracted from both local evaluation tracks.
