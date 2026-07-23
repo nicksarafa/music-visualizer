@@ -101,9 +101,10 @@
     return `oklch(${l} ${c} ${hue} / ${alpha})`;
   }
 
-  function setSketch(body) {
+  function setSketch(body, source = "conductor") {
     if (!body || !body.trim()) {
       sketch.fn = null;
+      sketch.source = null;
       sketchX.clearRect(0, 0, sketchC.width, sketchC.height);
       return true;
     }
@@ -117,12 +118,29 @@
       sketch.store = store;
       sketch.born = performance.now();
       sketch.errors = 0;
+      sketch.source = source;
       return true;
     } catch (e) {
       setNote(`sketch rejected: ${e.message}`.slice(0, 90));
       return false;
     }
   }
+
+  // Living skins: a skin file may carry a `sketch` string — the same
+  // real-time drawing contract the conductor writes — so picking it from
+  // the paint dropdown (or [ ] keys) brings it to life. The conductor's
+  // own live material manages its sketch itself.
+  let lastSeenSkin = null;
+  setInterval(() => {
+    if (!window.PIGMENT || !PIGMENT.observe) return;
+    const name = PIGMENT.observe().skin;
+    if (name === lastSeenSkin) return;
+    lastSeenSkin = name;
+    if (name === LIVE_SKIN) return;
+    const skin = PIGMENT.SKINS[name];
+    if (skin && typeof skin.sketch === "string") setSketch(skin.sketch, "skin");
+    else if (sketch.source === "skin") setSketch(null);
+  }, 400);
 
   function sketchFrame(now) {
     requestAnimationFrame(sketchFrame);
