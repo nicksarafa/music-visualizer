@@ -277,3 +277,12 @@ window.LIVESET.acts.push({
    on flux; the fireflies become moths that spiral inward as the
    chromatic tension rises and drift out when it rests; autumn leaves
    fall through the field, faster while the room speaks. */
+
+/* ---- act vii·b / vii·c (residency, 14:33–14:35) ------------------
+   vii·b: the harmony resolved upward to E/F — the lantern now climbs
+   while the room sounds and settles when it rests; a fine light-rain
+   in the two strongest notes falls behind the moths.
+   vii·c: the room dreamed down to an A♭/C/E augmented color at low
+   level — three breath rings in the live triad now expand and
+   contract around the lantern. Variations composed by extending the
+   running sketch body in place (fn.toString() → append → re-arm). */
