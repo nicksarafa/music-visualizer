@@ -387,3 +387,11 @@ window.LIVESET.acts.push({
     }
   }`,
 });
+
+/* ---- act viii·c / ix (residency, 14:45–14:48) --------------------
+   viii·c: F# lydian led with rising energy — eight dragonflies over
+   the pond, darting on flux, hovering with shimmer-wings on rest.
+   ix — dusk mirror: the room settled into C# minor (C#/E/G#), so
+   dusk falls: a vignette deepens while the room is quiet and lifts
+   when it sings; star reflections tremble in the water only; the
+   ferry boats become dusk lanterns with wider halos. */
