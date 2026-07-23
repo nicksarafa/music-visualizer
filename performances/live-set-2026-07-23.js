@@ -286,3 +286,11 @@ window.LIVESET.acts.push({
    level — three breath rings in the live triad now expand and
    contract around the lantern. Variations composed by extending the
    running sketch body in place (fn.toString() → append → re-arm). */
+
+/* ---- act viii — the ferry (residency, 14:38) ---------------------
+   A real modulation: the room left the C/E region for F/B♭/F♯. The
+   scene crossed water with it — koi pond material (nacre, caustics,
+   deep capillaries), color-tide movement, and a sketch of paper
+   boats: each strike launches a boat carrying its note's flame,
+   ripples widen behind them, and the current runs at the room's
+   loudness. First material/movement change of the residency. */
