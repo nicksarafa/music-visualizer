@@ -395,3 +395,12 @@ window.LIVESET.acts.push({
    dusk falls: a vignette deepens while the room is quiet and lifts
    when it sings; star reflections tremble in the water only; the
    ferry boats become dusk lanterns with wider halos. */
+
+/* ---- act ix·b — moonpath and koi shadows (residency, 14:51) ------
+   Night settled (level ~0.18, E over B). A moonpath opens across the
+   water and clarifies with stillness — sound scatters it — while koi
+   shadows glide under the surface on each strike. At 14:52 the
+   harmony began walking upward (F → F# → G#, whole-tone color) and
+   the scene answers on its own: each newly launched boat carries the
+   note that struck it, so the flotilla is re-coloring itself with the
+   climb. No intervention needed this beat — the system is listening. */
