@@ -123,3 +123,65 @@ window.LIVESET.acts.push({
     ctx.beginPath(); ctx.arc(e.x, e.y, 1.2 + e.life * 2.2, 0, Math.PI * 2); ctx.fill();
   }`,
 });
+
+/* ---- act iii — bioluminescent tide -------------------------------
+   The room exhaled — loudness fell to 0.3, flux near zero, a close
+   chromatic cluster around C#/D. The set followed it down: lantern
+   motes adrift on slow currents, each pulsing only while its note is
+   alive in the room, joined by faint filaments when they pass close.
+   Played over suminagashi/nacre with deep capillaries, color-tide. */
+window.LIVESET.acts.push({
+  comment: "act iii — bioluminescent tide, the room exhales",
+  movement: "color-tide",
+  base_paint: "suminagashi",
+  params: { sizeMul: 0.9, gravity: 0.2, splat: 0.05, capillary: 0.7, glossAlpha: 0.18,
+    edgeAlpha: 0.05, dripAlpha: 0.02, dripWidthMul: 0.7, threadAlpha: 0.15, stippleDensity: 0.8,
+    interferenceAlpha: 0.35, causticAlpha: 0.1, leafAlpha: 0, strokeMode: "nacre",
+    leanMode: "flow", granulate: false, ringed: false },
+  sketch_mode: "replace",
+  sketch: `
+  this.lan = this.lan || Array.from({length: 64}, (_, i) => ({
+    x: Math.random() * w, y: Math.random() * h,
+    ph: Math.random() * Math.PI * 2, dp: 0.008 + Math.random() * 0.02,
+    dr: Math.random() * Math.PI * 2, pc: i % 12
+  }));
+  this.glow = this.glow || new Array(12).fill(0);
+  let mx = 0;
+  for (let i = 0; i < 12; i++) mx = Math.max(mx, audio.chroma[i]);
+  for (let i = 0; i < 12; i++) {
+    const target = mx > 0 ? audio.chroma[i] / mx : 0;
+    this.glow[i] += (target - this.glow[i]) * 0.04;
+  }
+  const drift = 0.15 + audio.level * 0.9;
+  for (const l of this.lan) {
+    l.ph += l.dp;
+    l.dr += (Math.random() - 0.5) * 0.05;
+    l.x += Math.cos(l.dr) * drift + Math.sin(t * 0.1 + l.ph) * 0.3;
+    l.y += Math.sin(l.dr) * drift * 0.6 - 0.08;
+    if (l.x < -20) l.x = w + 20; if (l.x > w + 20) l.x = -20;
+    if (l.y < -20) l.y = h + 20; if (l.y > h + 20) l.y = -20;
+    const g = this.glow[l.pc];
+    if (g < 0.03) continue;
+    const breath = 0.5 + 0.5 * Math.sin(l.ph * 3 + t);
+    const r = (2.5 + g * 9) * (0.7 + breath * 0.6) * (1 + audio.level * 1.5);
+    const grad = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, r * 3);
+    grad.addColorStop(0, color(l.pc, 0.30 * g + 0.06, 0.8, 0.1));
+    grad.addColorStop(0.4, color(l.pc, 0.10 * g, 0.7, 0.13));
+    grad.addColorStop(1, color(l.pc, 0, 0.65, 0.13));
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(l.x, l.y, r * 3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.lineWidth = 0.7;
+  for (let i = 0; i < this.lan.length; i += 2) {
+    const a = this.lan[i];
+    if (this.glow[a.pc] < 0.1) continue;
+    for (let j = i + 1; j < Math.min(i + 8, this.lan.length); j++) {
+      const b = this.lan[j];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < 130 && this.glow[b.pc] > 0.1) {
+        ctx.strokeStyle = color(a.pc, 0.05 + audio.level * 0.08, 0.75, 0.08);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+  }`,
+});
