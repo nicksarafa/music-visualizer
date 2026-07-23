@@ -404,3 +404,10 @@ window.LIVESET.acts.push({
    the scene answers on its own: each newly launched boat carries the
    note that struck it, so the flotilla is re-coloring itself with the
    climb. No intervention needed this beat — the system is listening. */
+
+/* ---- act x — the surfacing (residency, 14:56) --------------------
+   Energy returned (level 0.31, three strikes, C#/C/F). The koi stop
+   being shadows: each strike sends one breaching above the surface in
+   the strike's own color — a living brushstroke with a pale belly and
+   a flexing tail — trailing droplets and landing in splash rings.
+   The surface glitters with loudness. Pre-finale build. */
