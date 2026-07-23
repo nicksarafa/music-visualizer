@@ -269,3 +269,11 @@ window.LIVESET.acts.push({
    with loudness; sparks rising on flux. vi·b adds creeping tendrils
    that grow only while the room sounds — and only while someone is
    watching, since the browser pauses hidden tabs. Sketch-only. */
+
+/* ---- act vii — moth lantern (residency, 14:30) -------------------
+   Heard via PIG.listen (throttle-proof) while the tab was hidden:
+   the harmony walked down into a chromatic B/C/C# cluster, quiet and
+   tense. The rose folds into a single lantern whose flame flickers
+   on flux; the fireflies become moths that spiral inward as the
+   chromatic tension rises and drift out when it rests; autumn leaves
+   fall through the field, faster while the room speaks. */
