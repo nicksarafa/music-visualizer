@@ -19,6 +19,7 @@
   const MODEL = "claude-opus-4-8";
   const API_URL = "https://api.anthropic.com/v1/messages";
   const KEY_STORE = "pigment-agent-key";
+  const LIVE_STORE = "pigment-live-act";
   const LIVE_SKIN = "✳ conductor";
   const CYCLE_MS = 22000;
   const SAMPLE_MS = 250;
@@ -351,7 +352,7 @@ How to conduct:
     return out;
   }
 
-  function applyDecision(decision) {
+  function applyDecision(decision, persist = true) {
     const base = PIGMENT.SKINS[decision.base_paint];
     if (!base) return;
     const live = {
@@ -374,7 +375,54 @@ How to conduct:
     if (decision.sketch_mode === "replace") setSketch(decision.sketch);
     else if (decision.sketch_mode === "off") setSketch(null);
     state.lastDecision = decision;
+    if (persist) persistLive(decision);
   }
+
+  // The live act is persisted so it survives reloads and mirrors into every
+  // open tab (via storage events) — the performance is visible everywhere.
+  function persistLive(decision) {
+    try {
+      localStorage.setItem(LIVE_STORE, JSON.stringify({
+        comment: decision.comment,
+        movement: decision.movement,
+        base_paint: decision.base_paint,
+        params: decision.params,
+        sketch: decision.sketch_mode === "replace" ? decision.sketch
+          : decision.sketch_mode === "off" ? "" : currentSketchBody(),
+      }));
+    } catch (e) {}
+  }
+
+  function currentSketchBody() {
+    if (!sketch.fn) return "";
+    const src = sketch.fn.toString();
+    return src.slice(src.indexOf("{") + 1, src.lastIndexOf("}")).replace('"use strict";', "");
+  }
+
+  function applySaved(saved) {
+    if (!saved) return;
+    if (saved.base_paint && PIGMENT.SKINS[saved.base_paint]) {
+      applyDecision({
+        ...saved,
+        sketch_mode: saved.sketch ? "replace" : "off",
+        sketch: saved.sketch || "",
+      }, false);
+    } else if (saved.sketch) {
+      setSketch(saved.sketch);
+    }
+    if (saved.comment) setNote(saved.comment);
+  }
+
+  window.addEventListener("storage", e => {
+    if (e.key !== LIVE_STORE || !e.newValue) return;
+    try { applySaved(JSON.parse(e.newValue)); } catch (err) {}
+  });
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(LIVE_STORE) || "null");
+    // wait a beat so the boot-time skin/composition restore runs first
+    if (saved) setTimeout(() => applySaved(saved), 600);
+  } catch (e) {}
 
   /* ---- ui ---- */
 
