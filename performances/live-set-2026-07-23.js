@@ -461,3 +461,13 @@ window.LIVESET.acts.push({
      sketch and come alive when selected (agent.js watcher; also
      lantern pond and storm glass from the set-one mechanisms)
    Sketch bodies live in the skins/ files and the session transcript. */
+
+/* ---- finale — the flock (15:48) ----------------------------------
+   The hour closed with a meta-species: "the flock", a living skin
+   that discovers every other living skin at runtime and cycles
+   through their dreams in 25-second crossfaded shifts, each dream
+   keeping its own clock and memory. Verified live with all eight
+   dreams in rotation. Nine skins were born in this hour:
+   lantern pond · storm glass · electric sheep · twin nebula ·
+   garden of forms · shan shui memory · pendulum choir ·
+   night garden · the flock. */
