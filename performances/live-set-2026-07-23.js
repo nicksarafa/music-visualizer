@@ -437,3 +437,10 @@ window.LIVESET.acts.push({
            spectral thick-to-thin stroke in that note's color
    The full sketch bodies live in the session transcript; the scene
    remains reproducible from acts[4] plus these notes. */
+
+/* ---- close (15:13) -----------------------------------------------
+   The settling completed on time: every ring of the hour's mandala
+   closed into a full circle inside a cathedral of emerald and violet
+   blooms, the aurora held the top edge, petals kept falling, and the
+   calligrapher's C# signature dried in the corner while the room
+   played G·F#. Thirteen acts, one hour, one painting. fin. */
