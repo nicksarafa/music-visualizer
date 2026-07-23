@@ -411,3 +411,9 @@ window.LIVESET.acts.push({
    the strike's own color — a living brushstroke with a pale belly and
    a flexing tail — trailing droplets and landing in splash rings.
    The surface glitters with loudness. Pre-finale build. */
+
+/* ---- act x·b — lily-pad path (residency, 14:58) ------------------
+   Each change of dominant note surfaces a lily pad at that note's
+   seat on the circle of fifths, stem-linked to the previous pad — a
+   slowly fading map of where the harmony has walked. The G#→G→F#
+   chromatic descent drew the first stones. */
