@@ -143,6 +143,13 @@
   }
   requestAnimationFrame(sketchFrame);
 
+  // hidden tabs pause rAF; shift the sketch clock so t doesn't leap on return
+  let hiddenAt = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") hiddenAt = performance.now();
+    else if (hiddenAt) { sketch.born += performance.now() - hiddenAt; hiddenAt = 0; }
+  });
+
   /* ---- prompt & schema ---- */
 
   function buildSchema() {
