@@ -49,6 +49,20 @@ Each paint skin is a small file in `skins/` registered with `PIGMENT.registerSki
 - **ultraviolet** — mineral purple, velvet darkness, and warm metal
 - **aurelia** — mother-of-pearl mineral washes, electrum leaf, capillary veins, and wet caustics
 
+Nine of the paints are **living skins** — born in a live AI-conducted residency on 2026-07-23, they carry a real-time sketch layer that runs whenever the paint is selected:
+
+- **lantern pond** — every strike launches a paper boat ferrying its note's flame; koi shadows below; a moonpath opens in stillness
+- **storm glass** — strike tides sweep the glass; dense playing draws constellation lightning; sustained loudness makes the field surge
+- **electric sheep** — a fractal flame whose genome drifts with flux, mutates on strikes, and takes its symmetry from the chord
+- **twin nebula** — one genome, two mirrored dust-nebulae breathing in counterphase, filament-bridged by shared notes
+- **garden of forms** — strike-seeded reaction-diffusion chemistry growing dotted rivers and labyrinths
+- **shan shui memory** — the session painted as an ink landscape scroll: mountains from loudness, mist in the rests
+- **pendulum choir** — every note a harmonograph pendulum at its true interval ratio; consonance closes rosettes, dissonance weaves nets
+- **night garden** — strikes germinate trees whose branching comes from the chord's width; blossoms in the triad's colors
+- **the flock** — the skin that dreams every other dream: discovers all living skins and cycles their sketches in crossfaded shifts
+
+There is also a **✳ conductor** toggle in the top bar: an optional AI agent (Anthropic API; put a key in a gitignored `conductor.key` beside `index.html`) that listens to the room and re-composes material, movement, and its own generated sketch layer every cycle. The full residency that produced these is replayable from `performances/live-set-2026-07-23.js`.
+
 Keyboard: `c` clear, `s` save, `r` record video (with audio), `f` focus mode (fullscreen, chrome hidden), `h` panel, `[` `]` cycle paints, and `{` `}` cycle movements.
 
 To make a new skin, copy any file in `skins/`, change the name and values, and add a `<script>` tag in `index.html`. See `engine.js` `DEFAULT_PARAMS` for everything a skin can override.
