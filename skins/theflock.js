@@ -60,6 +60,20 @@ PIGMENT.registerSkin({
   const pt = t % PHASE;
   const cur = this.dreams[idx];
   const nxt = this.dreams[(idx + 1) % this.dreams.length];
+  // ink dreams were born on light paper — raise a screen for them
+  const LIGHT = { "shan shui memory": 1, "pendulum choir": 1 };
+  let screen = LIGHT[cur.name] ? 1 : 0;
+  if (pt > PHASE - FADE) {
+    const a = (pt - (PHASE - FADE)) / FADE;
+    screen = screen * (1 - a) + (LIGHT[nxt.name] ? 1 : 0) * a;
+  }
+  if (screen > 0.02) {
+    const g = ctx.createRadialGradient(w / 2, h * 0.52, 0, w / 2, h * 0.52, Math.max(w, h) * 0.62);
+    g.addColorStop(0, "rgba(240,237,226," + (0.62 * screen).toFixed(3) + ")");
+    g.addColorStop(1, "rgba(240,237,226," + (0.28 * screen).toFixed(3) + ")");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  }
   // each dream's clock only runs while it is dreaming
   this.clocks[cur.name] += 1 / 60;
   try {
