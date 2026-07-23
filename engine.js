@@ -138,8 +138,10 @@ function setSkin(name, { keepPaint = false } = {}) {
     paintC.style.mixBlendMode = P("blend");
     makeGrain();
   };
+  // a skin without a dropdown option (e.g. the conductor's live material)
+  // leaves the select showing its base paint instead of going blank
   const select = document.getElementById("skinSelect");
-  if (select) select.value = name;
+  if (select && select.querySelector(`option[value="${CSS.escape(name)}"]`)) select.value = name;
   try { localStorage.setItem("pigment-skin", name); } catch (e) {}
   if (keepPaint || !SKIN) { apply(); return; }
   // the old painting dissolves rather than vanishing
@@ -1801,6 +1803,7 @@ function setSource(s) {
 let lastOnset = 0;
 let lastSpawn = 0;
 let lastDominantPc = -1;
+let liveLevel = 0, liveFlux = 0;
 let fluxHistory = [];
 let statusFadeTimer = null;
 const smoothChroma = new Float32Array(12);
@@ -1835,6 +1838,9 @@ function analyse(now) {
       chroma[pc] += mag * mag * (1 / (1 + (f / 500)));
     }
   }
+
+  liveLevel = level;
+  liveFlux = flux;
 
   fluxHistory.push(flux);
   if (fluxHistory.length > 45) fluxHistory.shift();
@@ -1889,6 +1895,20 @@ function analyse(now) {
     }, 2600);
   }
 }
+
+// Snapshot of what the room sounds like right now, for external observers
+// (agent.js). Read-only; movement/material changes go through setSkin /
+// setComposition so the engine stays skin-agnostic.
+window.PIGMENT.observe = () => ({
+  source,
+  level: liveLevel,
+  flux: liveFlux,
+  chroma: Array.from(smoothChroma),
+  dominantPc: lastDominantPc,
+  strikesLast10s: spawnTimes.length,
+  skin: SKIN ? SKIN.name : null,
+  composition: COMPOSITION.id,
+});
 
 /* ---------------- main loop ---------------- */
 
