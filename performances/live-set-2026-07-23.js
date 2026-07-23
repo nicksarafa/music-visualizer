@@ -185,3 +185,70 @@ window.LIVESET.acts.push({
     }
   }`,
 });
+
+/* ---- act iv — aurora vespers (finale) ----------------------------
+   The room settled to a hush, so the set resolves rather than peaks:
+   three woven aurora curtains breathe across the upper sky, their
+   strand hues drawn from whichever notes are still alive, and every
+   strike that still lands becomes one falling star. Gravity goes
+   slightly negative so the paint rises like incense. slow-orbit,
+   aurora/airbrush — the patient galaxy closes the show. */
+window.LIVESET.acts.push({
+  comment: "act iv — aurora vespers, paint rising like incense",
+  movement: "slow-orbit",
+  base_paint: "aurora",
+  params: { sizeMul: 1.0, gravity: -0.6, splat: 0, capillary: 0.4, glossAlpha: 0.15,
+    edgeAlpha: 0.04, dripAlpha: 0.03, dripWidthMul: 0.8, threadAlpha: 0.2, stippleDensity: 0.8,
+    interferenceAlpha: 0.25, causticAlpha: 0.2, leafAlpha: 0, strokeMode: "airbrush",
+    leanMode: "flow", granulate: false, ringed: false },
+  sketch_mode: "replace",
+  sketch: `
+  this.glow = this.glow || new Array(12).fill(0);
+  this.meteors = this.meteors || [];
+  this.lastStrikes = this.lastStrikes == null ? audio.strikesLast10s : this.lastStrikes;
+  let mx = 0;
+  for (let i = 0; i < 12; i++) mx = Math.max(mx, audio.chroma[i]);
+  for (let i = 0; i < 12; i++) {
+    const target = mx > 0 ? audio.chroma[i] / mx : 0;
+    this.glow[i] += (target - this.glow[i]) * 0.03;
+  }
+  const alive = this.glow.map((g, i) => [i, g]).filter(x => x[1] > 0.08).sort((a, b) => b[1] - a[1]);
+  const pcs = alive.length ? alive.map(x => x[0]) : [1, 8, 3];
+  const breathe = 0.6 + 0.4 * Math.sin(t * 0.35) + audio.level * 0.9;
+  for (let band = 0; band < 3; band++) {
+    const baseY = h * (0.16 + band * 0.10);
+    const amp = h * (0.05 + band * 0.02);
+    const step = 14;
+    for (let x = 0; x <= w; x += step) {
+      const ph = x * 0.004 + t * (0.14 + band * 0.05) + band * 2.1;
+      const y = baseY + Math.sin(ph) * amp + Math.sin(ph * 0.37 + t * 0.08) * amp * 0.7;
+      const len = h * (0.10 + 0.10 * (0.5 + 0.5 * Math.sin(ph * 1.7))) * breathe;
+      const pc = pcs[((x / step) | 0) % pcs.length];
+      const a = (0.028 + this.glow[pc] * 0.05) * breathe;
+      const g = ctx.createLinearGradient(x, y, x, y + len);
+      g.addColorStop(0, color(pc, a * 1.6, 0.8, 0.1));
+      g.addColorStop(0.55, color(pc, a, 0.72, 0.12));
+      g.addColorStop(1, color(pc, 0, 0.7, 0.12));
+      ctx.strokeStyle = g;
+      ctx.lineWidth = step * 0.8;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + len); ctx.stroke();
+    }
+  }
+  if (audio.strikesLast10s > this.lastStrikes) {
+    this.meteors.push({ x: w * (0.15 + Math.random() * 0.7), y: h * 0.08,
+      vx: 1.5 + Math.random() * 2, vy: 2.5 + Math.random() * 2,
+      pc: audio.dominantPc >= 0 ? audio.dominantPc : pcs[0], life: 1 });
+  }
+  this.lastStrikes = audio.strikesLast10s;
+  for (let i = this.meteors.length - 1; i >= 0; i--) {
+    const m = this.meteors[i];
+    m.x += m.vx; m.y += m.vy; m.life -= 0.006;
+    if (m.life <= 0 || m.y > h) { this.meteors.splice(i, 1); continue; }
+    const tail = 26 * m.life;
+    const g = ctx.createLinearGradient(m.x - m.vx * tail, m.y - m.vy * tail, m.x, m.y);
+    g.addColorStop(0, color(m.pc, 0, 0.85, 0.08));
+    g.addColorStop(1, color(m.pc, 0.5 * m.life, 0.88, 0.08));
+    ctx.strokeStyle = g; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(m.x - m.vx * tail, m.y - m.vy * tail); ctx.lineTo(m.x, m.y); ctx.stroke();
+  }`,
+});
