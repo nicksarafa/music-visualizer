@@ -3,12 +3,16 @@
 /* ================================================================
    pigment — conductor
    An optional AI agent that listens to the room through the engine's
-   analysis (PIGMENT.observe) and re-composes the visuals live: every
-   cycle it reads a summary of what it heard, then re-tunes material
-   physics by authoring a derived skin, and may change movement or
-   base material when the music's character shifts. It never touches
-   the pitch-class → hue mapping. Calls the Anthropic API directly
-   from the browser with a user-supplied key (stored in localStorage).
+   analysis (PIGMENT.observe) and re-composes the visuals live. Each
+   cycle it reads a summary of what it heard, then:
+     - re-tunes material physics by authoring a derived skin,
+     - may change movement or base material as the music shifts,
+     - and may "branch off": write real-time drawing code that runs
+       every animation frame on its own overlay canvas, reacting to
+       the live audio.
+   It never touches the pitch-class → hue mapping. Calls the Anthropic
+   API directly from the browser. The key comes from the gitignored
+   conductor.key file next to index.html (or localStorage fallback).
    ================================================================ */
 
 (() => {
@@ -45,6 +49,7 @@
   const state = {
     enabled: false,
     busy: false,
+    key: "",
     samples: [],
     history: [],
     cycleTimer: null,
@@ -54,15 +59,90 @@
 
   const el = {
     toggle: document.getElementById("conductorToggle"),
+    onoff: document.getElementById("conductorOnOff"),
     state: document.getElementById("agentState"),
     note: document.getElementById("agentNote"),
     keyWrap: document.getElementById("agentKeyWrap"),
     key: document.getElementById("agentKey"),
   };
 
+  // key baked into the build as a gitignored file beside index.html
+  const keyFile = fetch("conductor.key")
+    .then(r => (r.ok ? r.text() : ""))
+    .then(t => t.trim())
+    .catch(() => "");
+
+  async function resolveKey() {
+    return (await keyFile) || localStorage.getItem(KEY_STORE) || "";
+  }
+
   function baseSkinNames() {
     return Object.keys(PIGMENT.SKINS).filter(n => n !== LIVE_SKIN);
   }
+
+  /* ---- live sketch layer: agent-authored drawing code ---- */
+
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const sketchC = document.getElementById("conduct");
+  const sketchX = sketchC.getContext("2d");
+  const sketch = { fn: null, store: {}, born: 0, errors: 0 };
+
+  function sizeSketch() {
+    sketchC.width = Math.round(innerWidth * DPR);
+    sketchC.height = Math.round(innerHeight * DPR);
+  }
+  sizeSketch();
+  window.addEventListener("resize", sizeSketch);
+
+  // colors the sketch draws with stay on the product's pitch-class wheel
+  function sketchColor(pc, alpha = 0.5, l = 0.62, c = 0.13) {
+    const hue = PIGMENT.helpers.pcHue(((Math.round(pc) % 12) + 12) % 12);
+    return `oklch(${l} ${c} ${hue} / ${alpha})`;
+  }
+
+  function setSketch(body) {
+    if (!body || !body.trim()) {
+      sketch.fn = null;
+      sketchX.clearRect(0, 0, sketchC.width, sketchC.height);
+      return true;
+    }
+    try {
+      const fn = new Function("ctx", "w", "h", "t", "audio", "color", `"use strict";\n${body}`);
+      const store = {};
+      // dry run so a sketch that throws immediately never goes live
+      fn.call(store, sketchX, sketchC.width, sketchC.height, 0, PIGMENT.observe(), sketchColor);
+      sketchX.clearRect(0, 0, sketchC.width, sketchC.height);
+      sketch.fn = fn;
+      sketch.store = store;
+      sketch.born = performance.now();
+      sketch.errors = 0;
+      return true;
+    } catch (e) {
+      setNote(`sketch rejected: ${e.message}`.slice(0, 90));
+      return false;
+    }
+  }
+
+  function sketchFrame(now) {
+    requestAnimationFrame(sketchFrame);
+    if (!sketch.fn) return;
+    const w = sketchC.width, h = sketchC.height;
+    sketchX.clearRect(0, 0, w, h);
+    try {
+      sketch.fn.call(sketch.store, sketchX, w, h, (now - sketch.born) / 1000,
+        PIGMENT.observe(), sketchColor);
+      sketch.errors = 0;
+    } catch (e) {
+      if (++sketch.errors > 120) {
+        sketch.fn = null;
+        sketchX.clearRect(0, 0, w, h);
+        setNote("sketch crashed and was dropped");
+      }
+    }
+  }
+  requestAnimationFrame(sketchFrame);
+
+  /* ---- prompt & schema ---- */
 
   function buildSchema() {
     const params = {};
@@ -82,12 +162,20 @@
     return {
       type: "object",
       additionalProperties: false,
-      required: ["comment", "movement", "base_paint", "params"],
+      required: ["comment", "movement", "base_paint", "params", "sketch_mode", "sketch"],
       properties: {
         comment: { type: "string", description: "what you heard and did, lowercase, at most 10 words" },
         movement: { type: "string", enum: PIGMENT.COMPOSITIONS.map(c => c.id) },
         base_paint: { type: "string", enum: baseSkinNames() },
         params: { type: "object", additionalProperties: false, required, properties: params },
+        sketch_mode: {
+          type: "string", enum: ["keep", "replace", "off"],
+          description: "keep the running sketch, replace it with new code, or turn it off",
+        },
+        sketch: {
+          type: "string",
+          description: "JavaScript function body when sketch_mode is replace; empty string otherwise",
+        },
       },
     };
   }
@@ -96,9 +184,9 @@
     const movements = PIGMENT.COMPOSITIONS.map(c => `- ${c.id}: ${c.note}`).join("\n");
     const paints = baseSkinNames().join(", ");
     const knobs = Object.entries(TUNABLE).map(([k, c]) => `- ${k} (${c.min}..${c.max})`).join("\n");
-    return `You are the conductor inside "pigment", a synesthetic instrument that paints live sound. Pitch classes map to fixed hues (circle of fifths) — that mapping is the product's promise and is not yours to change. What you conduct is everything else: the physics of the paint and the choreography of the movement.
+    return `You are the conductor inside "pigment", a synesthetic instrument that paints live sound. Pitch classes map to fixed hues (circle of fifths) — that mapping is the product's promise and is not yours to change. What you conduct is everything else: the physics of the paint, the choreography of the movement, and your own live sketch layer.
 
-Every cycle you receive a reading of the room — loudness, spectral flux, active notes, strike density, trend — plus your recent decisions. Respond with a complete material specification.
+Every cycle you receive a reading of the room — loudness, spectral flux, active notes, strike density, trend — plus your recent decisions. Respond with a complete specification. Everything you return is applied immediately, live, without clearing the canvas.
 
 Movements (how music travels from the center):
 ${movements}
@@ -111,11 +199,25 @@ ${knobs}
 - leanMode: flow | vertical
 - granulate, ringed: booleans
 
+Branching off — your own real-time visual code:
+Beyond retuning the material you may branch off and write your own living visual. Set sketch_mode to "replace" and put JavaScript in sketch: it becomes the body of function(ctx, w, h, t, audio, color) running EVERY animation frame on a transparent overlay canvas above the painting.
+- ctx: CanvasRenderingContext2D — the canvas is cleared for you before each frame
+- w, h: canvas size in device pixels
+- t: seconds since your sketch started
+- audio: { level 0..1, flux, chroma: number[12], dominantPc: 0-11 or -1, strikesLast10s } — sampled live, so drive everything from it
+- color(pc, alpha, lightness=0.62, chroma=0.13): an oklch() color on the product's fixed pitch-class wheel — derive every hue from it so the sketch speaks the painting's language
+- persistent state lives on this (e.g. this.motes = this.motes || []); no DOM, no network, no timers, no globals
+Sketch aesthetics — this must be beautiful, not busy:
+- it is a translucent veil in conversation with the painting underneath, never an opaque replacement; favor low alpha, negative space, slow drift
+- make it alive: breathe with audio.level, shimmer on flux, lean toward the chroma-strong pitch classes; silence should visibly calm it
+- keep per-frame work light (a few hundred primitives), the whole body under ~80 lines
+- write a new sketch only when the music genuinely changes character or you have a clearly better idea; otherwise sketch_mode "keep"
+
 How to conduct:
 - Match energy: quiet rooms want small, tight, matte marks; loud energetic rooms can take bold size, splat, drips, caustics.
-- Match character: percussive music suits stipple/sand-like textures; sustained harmonic music suits washes, capillaries, nacre.
-- Evolve gradually. Change a few params per cycle. Keep movement and base_paint stable unless the music genuinely changes character — switching them clears or disrupts the canvas, so do it at most every few cycles.
-- Silence is a statement: when the room goes quiet, let the material settle rather than thrash.
+- Match character: percussive music suits stipple and grains; sustained harmonic music suits washes, capillaries, nacre.
+- Evolve gradually. Change a few params per cycle. Keep movement and base_paint stable unless the music genuinely changes character.
+- Silence is a statement: when the room goes quiet, let everything settle rather than thrash.
 - comment: lowercase, plain, at most 10 words — it is shown in the UI.`;
   }
 
@@ -155,6 +257,7 @@ How to conduct:
       source: last.source,
       current_movement: last.composition,
       current_paint: last.skin,
+      sketch_running: !!sketch.fn,
     };
   }
 
@@ -182,7 +285,7 @@ How to conduct:
       if (err.status === 401) {
         localStorage.removeItem(KEY_STORE);
         disable();
-        showKeyInput("that key was rejected — enter a valid Anthropic API key");
+        showKeyInput("the API key was rejected — check conductor.key or enter one here");
       } else if (err.status === 429 || err.status === 529) {
         setState("listening");
         setNote("resting — rate limited, will try again next cycle");
@@ -200,19 +303,20 @@ How to conduct:
       observation,
       recent_decisions: state.history.map(h => ({
         comment: h.comment, movement: h.movement, base_paint: h.base_paint,
+        sketch_mode: h.sketch_mode,
       })),
     });
     const res = await fetch(API_URL, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": localStorage.getItem(KEY_STORE) || "",
+        "x-api-key": state.key,
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true",
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1500,
+        max_tokens: 8000,
         system: [{ type: "text", text: systemPrompt(), cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: user }],
         output_config: { format: { type: "json_schema", schema: buildSchema() } },
@@ -267,6 +371,8 @@ How to conduct:
     if (decision.movement && decision.movement !== PIGMENT.observe().composition) {
       PIGMENT.setComposition(decision.movement, { keepPaint: true });
     }
+    if (decision.sketch_mode === "replace") setSketch(decision.sketch);
+    else if (decision.sketch_mode === "off") setSketch(null);
     state.lastDecision = decision;
   }
 
@@ -282,14 +388,17 @@ How to conduct:
     el.key.focus();
   }
 
-  function enable() {
-    if (!localStorage.getItem(KEY_STORE)) {
-      showKeyInput("enter your Anthropic API key — stored only in this browser, sent only to anthropic.com");
+  async function enable() {
+    state.key = await resolveKey();
+    if (!state.key) {
+      showKeyInput("no conductor.key found — enter an Anthropic API key (stored only in this browser)");
       return;
     }
     state.enabled = true;
     state.samples = [];
     el.toggle.classList.add("on");
+    el.toggle.setAttribute("aria-pressed", "true");
+    el.onoff.textContent = "on";
     setState("listening");
     setNote("listening to the room…");
     state.sampleTimer = setInterval(sample, SAMPLE_MS);
@@ -301,9 +410,12 @@ How to conduct:
     state.enabled = false;
     clearInterval(state.sampleTimer);
     clearInterval(state.cycleTimer);
+    setSketch(null);
     el.toggle.classList.remove("on");
+    el.toggle.setAttribute("aria-pressed", "false");
+    el.onoff.textContent = "off";
     setState("off");
-    setNote("the ✳ button — an ai that listens and re-composes the paint live");
+    setNote("the ✳ toggle — an ai that listens and re-composes the visuals live");
   }
 
   el.toggle.addEventListener("click", () => (state.enabled ? disable() : enable()));
@@ -324,7 +436,9 @@ How to conduct:
     cycle,
     applyDecision,
     summarize,
+    setSketch,
     state,
+    sketch,
     forgetKey() { localStorage.removeItem(KEY_STORE); },
   };
 })();

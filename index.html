@@ -100,39 +100,46 @@
   }
   button.bare:hover { text-decoration: underline; color: var(--ink); }
 
-  #panelToggle {
+  #topbar {
     position: fixed; top: 24px; right: 24px; z-index: 40;
+    display: flex; align-items: center; gap: 10px;
+    transition: transform 0.45s var(--ease), opacity 0.8s var(--ease);
+  }
+  body.panel-open #topbar { transform: translateX(-292px); }
+
+  #panelToggle {
     width: 34px; height: 34px; border-radius: 50%;
     background: var(--panel-bg);
     border: 1px solid var(--hairline);
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: transform 0.45s var(--ease), border-color 0.3s;
+    transition: border-color 0.3s;
   }
   #panelToggle:hover { border-color: var(--ink-soft); }
   #panelToggle svg { width: 14px; height: 14px; stroke: var(--ink); stroke-width: 1.5; fill: none; }
-  body.panel-open #panelToggle { transform: translateX(-292px); }
 
-  #conductorToggle {
-    position: fixed; top: 68px; right: 24px; z-index: 40;
-    width: 34px; height: 34px; border-radius: 50%;
+  .pill {
+    height: 34px; padding: 0 14px; border-radius: 999px;
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; letter-spacing: 0.01em; color: var(--ink-soft);
     background: var(--panel-bg);
     border: 1px solid var(--hairline);
+    cursor: pointer;
+    transition: border-color 0.3s, color 0.3s;
+  }
+  .pill:hover { border-color: var(--ink-soft); color: var(--ink); }
+  .pill b { font-weight: 500; }
+
+  #conductorToggle {
     /* a small ink sparkle in place of the pointer */
     cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26"><path d="M13 2 C13.9 8.6 17.4 12.1 24 13 C17.4 13.9 13.9 17.4 13 24 C12.1 17.4 8.6 13.9 2 13 C8.6 12.1 12.1 8.6 13 2 Z" fill="%232f2a22" stroke="%23f7f4ec" stroke-width="1.4"/><circle cx="20.5" cy="5.5" r="1.6" fill="%232f2a22" stroke="%23f7f4ec" stroke-width="0.9"/></svg>') 13 13, pointer;
-    display: flex; align-items: center; justify-content: center;
-    font: 16px "Sorts Mill Goudy", Georgia, serif;
-    color: var(--ink-soft);
-    transition: transform 0.45s var(--ease), border-color 0.3s, color 0.3s;
   }
-  #conductorToggle:hover { border-color: var(--ink-soft); color: var(--ink); }
-  #conductorToggle.on {
-    border-color: var(--ink); color: var(--ink);
+  #conductorToggle.on { border-color: var(--ink); color: var(--ink); }
+  #conductorToggle.on .spark {
+    display: inline-block;
     animation: conductorpulse 3s ease-in-out infinite;
   }
-  @keyframes conductorpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-  body.panel-open #conductorToggle { transform: translateX(-292px); }
-  body.focus-mode #conductorToggle { opacity: 0; pointer-events: none; }
+  @keyframes conductorpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
   #panel {
     position: fixed; top: 0; right: 0; bottom: 0; width: 280px; z-index: 35;
@@ -188,10 +195,10 @@
   }
 
   /* focus mode: nothing but the painting */
-  body.focus-mode #wordmark, body.focus-mode #panelToggle,
+  body.focus-mode #wordmark, body.focus-mode #topbar,
   body.focus-mode #status, body.focus-mode #panel { opacity: 0; pointer-events: none; }
   body.focus-mode.cursor-hidden { cursor: none; }
-  #wordmark, #panelToggle, #panel { transition: opacity 0.8s var(--ease), transform 0.45s var(--ease); }
+  #wordmark, #panel { transition: opacity 0.8s var(--ease), transform 0.45s var(--ease); }
 
   /* recording: a quiet pulse beside the status */
   body.recording #status { opacity: 1; }
@@ -260,6 +267,7 @@
 <canvas id="grain" class="layer"></canvas>
 <canvas id="paint" class="layer"></canvas>
 <canvas id="wet" class="layer"></canvas>
+<canvas id="conduct" class="layer" style="pointer-events: none;"></canvas>
 
 <div id="wordmark">pigment</div>
 
@@ -275,14 +283,21 @@
   </div>
 </div>
 
-<button id="panelToggle" title="controls" aria-label="controls">
-  <svg viewBox="0 0 24 24"><path d="M4 8h10M18 8h2M4 16h2M10 16h10M14 5.5v5M8 13.5v5"/></svg>
-</button>
-
-<button id="conductorToggle" title="conductor — an ai that listens and re-composes the paint" aria-label="conductor">✳</button>
+<div id="topbar">
+  <button class="pill" id="btnClear" title="clear canvas">clear</button>
+  <button class="pill" id="conductorToggle" aria-pressed="false"
+          title="conductor — an ai that listens and re-composes the visuals live">
+    <span class="spark">✳</span> conductor <b id="conductorOnOff">off</b>
+  </button>
+  <button id="panelToggle" title="controls" aria-label="controls">
+    <svg viewBox="0 0 24 24"><path d="M4 8h10M18 8h2M4 16h2M10 16h10M14 5.5v5M8 13.5v5"/></svg>
+  </button>
+</div>
 
 <div id="panel">
   <div id="panelTitle">controls</div>
+
+  <button class="quiet" id="btnRandom" title="random movement, paint, and settings">✦ randomize</button>
 
   <div class="ctl">
     <label for="compositionSelect">movement</label>
@@ -357,7 +372,6 @@
   <div class="rule"></div>
 
   <div class="panel-actions">
-    <button class="bare" id="btnClear">clear canvas</button>
     <button class="bare" id="btnSave">save painting</button>
     <button class="bare" id="btnRecord">record video</button>
   </div>

@@ -1970,6 +1970,24 @@ document.getElementById("srcOff").addEventListener("click", () => {
 });
 document.getElementById("btnClear").addEventListener("click", clearPainting);
 
+// randomizer: a new movement, paint, and slider settings in one gesture,
+// remixing the live painting rather than clearing it
+document.getElementById("btnRandom").addEventListener("click", () => {
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  setComposition(pick(COMPOSITIONS).id, { keepPaint: true });
+  const options = [...document.getElementById("skinSelect").options].map(o => o.value);
+  if (options.length) setSkin(pick(options), { keepPaint: true });
+  const ranges = {
+    "c-sens": [15, 90], "c-size": [15, 95], "c-bleed": [10, 95],
+    "c-drip": [0, 90], "c-thread": [0, 85], "c-fade": [0, 35],
+  };
+  for (const [id, [lo, hi]] of Object.entries(ranges)) {
+    const slider = document.getElementById(id);
+    slider.value = Math.round(lo + Math.random() * (hi - lo));
+    slider.dispatchEvent(new Event("input"));
+  }
+});
+
 function compositeTo(o) {
   o.fillStyle = P("paperHex");
   o.fillRect(0, 0, W, H);
