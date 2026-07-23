@@ -252,3 +252,10 @@ window.LIVESET.acts.push({
     ctx.beginPath(); ctx.moveTo(m.x - m.vx * tail, m.y - m.vy * tail); ctx.lineTo(m.x, m.y); ctx.stroke();
   }`,
 });
+
+/* ---- act v — moonrise (residency, 14:15) -------------------------
+   The hour-long residency begins: the vesper curtains stay, a moon
+   climbs for ten minutes over a chroma-twinkling starfield, and every
+   strike rings its halo like a bell. Sketch-only evolution — material
+   and movement unchanged so the transition is seamless on screen.
+   (Sketch body lives in the transcript; replay via acts[3] + moon.) */
