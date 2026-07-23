@@ -444,3 +444,20 @@ window.LIVESET.acts.push({
    blooms, the aurora held the top edge, petals kept falling, and the
    calligrapher's C# signature dried in the corner while the room
    played G·F#. Thirteen acts, one hour, one painting. fin. */
+
+/* ================= set two — the electric sheep hour ==============
+   15:13–16:20. The residency rolled over with a new directive: be
+   100x more creative, Electric-Sheep-like, and graduate anything
+   beautiful into committed skins. What happened:
+   - the weaver: harmony as warp, melody as weft — the session weaves
+     cloth, one weft row per melody change (act ii)
+   - sheep α→ε: an evolving flock of generative organisms —
+     α fractal flame (skin: electric sheep, frozen gen 5, 9-fold)
+     β variation genes (sin/swirl/sphere/horseshoe folds)
+     γ the twins (skin: twin nebula, frozen gen 32)
+     δ Gray-Scott chemistry (skin: garden of forms, 28 colonies)
+     ε the palimpsest → re-homed as skin: shan shui memory
+   - the LIVING SKINS mechanism itself: skins may carry a real-time
+     sketch and come alive when selected (agent.js watcher; also
+     lantern pond and storm glass from the set-one mechanisms)
+   Sketch bodies live in the skins/ files and the session transcript. */
