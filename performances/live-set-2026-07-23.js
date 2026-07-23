@@ -294,3 +294,96 @@ window.LIVESET.acts.push({
    boats: each strike launches a boat carrying its note's flame,
    ripples widen behind them, and the current runs at the room's
    loudness. First material/movement change of the residency. */
+
+/* ---- act viii·b, replayable --------------------------------------
+   Full ferry scene with the will-o-wisp undertow layer. */
+window.LIVESET.acts.push({
+  comment: "act viii·b — the ferry, wisps over the water",
+  movement: "color-tide",
+  base_paint: "koi",
+  params: { sizeMul: 1.1, gravity: 0.15, splat: 0.1, capillary: 0.5, glossAlpha: 0.2,
+    edgeAlpha: 0.06, dripAlpha: 0.03, dripWidthMul: 0.8, threadAlpha: 0.2, stippleDensity: 1,
+    interferenceAlpha: 0.3, causticAlpha: 0.25, leafAlpha: 0, strokeMode: "nacre",
+    leanMode: "flow", granulate: false, ringed: false },
+  sketch_mode: "replace",
+  sketch: `
+  this.boats = this.boats || [];
+  this.ripples = this.ripples || [];
+  this.glow = this.glow || new Array(12).fill(0);
+  this.lastStrikes = this.lastStrikes == null ? audio.strikesLast10s : this.lastStrikes;
+  const R = Math.min(w, h);
+  let mx = 0;
+  for (let i = 0; i < 12; i++) mx = Math.max(mx, audio.chroma[i]);
+  for (let i = 0; i < 12; i++) {
+    const tg = mx > 0 ? audio.chroma[i] / mx : 0;
+    this.glow[i] += (tg - this.glow[i]) * 0.05;
+  }
+  const pc0 = audio.dominantPc >= 0 ? audio.dominantPc : 5;
+  ctx.lineWidth = 0.8;
+  for (let ln = 0; ln < 7; ln++) {
+    const y0 = h * (0.2 + ln * 0.1);
+    ctx.strokeStyle = color((pc0 + ln * 7) % 12, 0.05 + audio.level * 0.05, 0.72, 0.1);
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 24) {
+      const y = y0 + Math.sin(x * 0.006 + t * (0.4 + audio.level) + ln * 1.7) * h * 0.02;
+      if (!x) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  if (audio.strikesLast10s > this.lastStrikes && this.boats.length < 12) {
+    this.boats.push({ x: -30, y: h * (0.25 + Math.random() * 0.5),
+      pc: pc0, ph: Math.random() * 6.28, born: t });
+  }
+  this.lastStrikes = audio.strikesLast10s;
+  if (!this.boats.length && t > 1) this.boats.push({ x: -30, y: h * 0.5, pc: pc0, ph: 0, born: t });
+  for (let i = this.boats.length - 1; i >= 0; i--) {
+    const b = this.boats[i];
+    b.ph += 0.03;
+    b.x += 0.5 + audio.level * 2.2;
+    b.y += Math.sin(b.ph) * 0.3;
+    if (b.x > w + 40) { this.boats.splice(i, 1); continue; }
+    if (Math.random() < 0.02) this.ripples.push({ x: b.x - 10, y: b.y + 4, r: 4, life: 1, pc: b.pc });
+    const bob = Math.sin(b.ph * 2) * 2;
+    const s = R * 0.016;
+    ctx.fillStyle = color(b.pc, 0.4, 0.5, 0.1);
+    ctx.beginPath();
+    ctx.moveTo(b.x - s * 1.6, b.y + bob);
+    ctx.quadraticCurveTo(b.x, b.y + bob + s * 1.3, b.x + s * 1.6, b.y + bob);
+    ctx.quadraticCurveTo(b.x, b.y + bob + s * 0.4, b.x - s * 1.6, b.y + bob);
+    ctx.fill();
+    const fl = 1 + Math.min(0.5, audio.flux * 6) * Math.sin(t * 19 + b.ph);
+    const g = ctx.createRadialGradient(b.x, b.y + bob - s * 0.7, 0, b.x, b.y + bob - s * 0.7, s * 3.2);
+    g.addColorStop(0, color(b.pc, 0.5 * fl, 0.9, 0.08));
+    g.addColorStop(1, color(b.pc, 0, 0.8, 0.1));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(b.x, b.y + bob - s * 0.7, s * 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = color(b.pc, 0.7 * fl, 0.93, 0.05);
+    ctx.beginPath(); ctx.arc(b.x, b.y + bob - s * 0.7, s * 0.5 * fl, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = this.ripples.length - 1; i >= 0; i--) {
+    const r = this.ripples[i];
+    r.r += 0.8 + audio.level; r.life -= 0.012;
+    if (r.life <= 0) { this.ripples.splice(i, 1); continue; }
+    ctx.strokeStyle = color(r.pc, r.life * 0.16, 0.78, 0.09);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r * 1.6, r.r * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  this.wisps = this.wisps || Array.from({length: 24}, (_, i) => ({
+    x: Math.random() * w, y: h * (0.2 + Math.random() * 0.6),
+    ph: Math.random() * 6.28, pc: [11, 0, 1][i % 3] }));
+  const undertow = (this.glow[11] + this.glow[0] + this.glow[1]) / 3;
+  if (undertow > 0.12) {
+    for (const ws of this.wisps) {
+      ws.ph += 0.03;
+      ws.x += Math.sin(ws.ph * 1.3) * 0.9 + 0.3;
+      ws.y += Math.cos(ws.ph * 0.9) * 0.5;
+      if (ws.x > w + 15) ws.x = -15;
+      const pulse = (0.5 + 0.5 * Math.sin(ws.ph * 4)) * undertow;
+      const g = ctx.createRadialGradient(ws.x, ws.y, 0, ws.x, ws.y, 12 + pulse * 26);
+      g.addColorStop(0, color(ws.pc, 0.30 * pulse + 0.05, 0.85, 0.09));
+      g.addColorStop(1, color(ws.pc, 0, 0.75, 0.11));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(ws.x, ws.y, 12 + pulse * 26, 0, Math.PI * 2); ctx.fill();
+    }
+  }`,
+});
