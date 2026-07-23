@@ -56,10 +56,34 @@ PIGMENT.registerSkin({
   }
   if (!this.dreams.length) return;
   const PHASE = 25, FADE = 3;
-  const idx = Math.floor(t / PHASE) % this.dreams.length;
-  const pt = t % PHASE;
-  const cur = this.dreams[idx];
-  const nxt = this.dreams[(idx + 1) % this.dreams.length];
+  // the flock dreams what the room asks for
+  const byName = {};
+  for (let i = 0; i < this.dreams.length; i++) byName[this.dreams[i].name] = i;
+  const chooseNext = () => {
+    const alive = (this.mood_glow || []).filter(g => g > 0.1).length;
+    const pick = names => {
+      const have = names.filter(n => byName[n] != null && byName[n] !== this.curIdx);
+      return have.length ? byName[have[(Math.random() * have.length) | 0]] : null;
+    };
+    let n = null;
+    if (audio.strikesLast10s >= 8 || audio.level > 0.5) n = pick(["storm glass", "electric sheep"]);
+    else if (audio.level < 0.08) n = pick(["shan shui memory", "lantern pond"]);
+    else if (alive >= 4) n = pick(["pendulum choir", "twin nebula"]);
+    if (n == null) n = (this.curIdx + 1 + ((Math.random() * (this.dreams.length - 1)) | 0)) % this.dreams.length;
+    return n;
+  };
+  this.mood_glow = this.mood_glow || new Array(12).fill(0);
+  let mmx = 0;
+  for (let i = 0; i < 12; i++) mmx = Math.max(mmx, audio.chroma[i]);
+  for (let i = 0; i < 12; i++) {
+    const tg = mmx > 0 ? audio.chroma[i] / mmx : 0;
+    this.mood_glow[i] += (tg - this.mood_glow[i]) * 0.05;
+  }
+  if (this.curIdx == null) { this.curIdx = 0; this.nxtIdx = chooseNext(); this.phaseStart = t; }
+  let pt = t - this.phaseStart;
+  if (pt >= PHASE) { this.curIdx = this.nxtIdx; this.nxtIdx = chooseNext(); this.phaseStart = t; pt = 0; }
+  const cur = this.dreams[this.curIdx];
+  const nxt = this.dreams[this.nxtIdx];
   // ink dreams were born on light paper — raise a screen for them
   const LIGHT = { "shan shui memory": 1, "pendulum choir": 1 };
   let screen = LIGHT[cur.name] ? 1 : 0;
