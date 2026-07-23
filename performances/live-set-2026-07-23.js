@@ -60,3 +60,66 @@ window.LIVESET.acts.push({
     }
   }`,
 });
+
+/* ---- act ii — solar chorus ---------------------------------------
+   The room held at full loudness with high flux, so the set escalated:
+   the chromagram itself becomes a rotating sun — twelve spokes on the
+   circle of fifths, each spoke's reach following its note's live
+   energy, a molten core breathing on loudness, embers flung on flux
+   that arc and fall home. Played over embers/impasto, radiant-heart. */
+window.LIVESET.acts.push({
+  comment: "act ii — solar chorus, the room is blazing",
+  movement: "radiant-heart",
+  base_paint: "embers",
+  params: { sizeMul: 1.6, gravity: 1.2, splat: 0.8, capillary: 0.15, glossAlpha: 0.25,
+    edgeAlpha: 0.12, dripAlpha: 0.07, dripWidthMul: 1.4, threadAlpha: 0.25, stippleDensity: 1.4,
+    interferenceAlpha: 0, causticAlpha: 0.45, leafAlpha: 0.2, strokeMode: "impasto",
+    leanMode: "flow", granulate: true, ringed: false },
+  sketch_mode: "replace",
+  sketch: `
+  this.rot = (this.rot || 0) + 0.0015 + audio.level * 0.006;
+  this.smooth = this.smooth || new Array(12).fill(0);
+  this.embers = this.embers || [];
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.42;
+  let max = 0;
+  for (let i = 0; i < 12; i++) max = Math.max(max, audio.chroma[i]);
+  for (let i = 0; i < 12; i++) {
+    const target = max > 0 ? audio.chroma[i] / max : 0;
+    this.smooth[i] += (target - this.smooth[i]) * 0.06;
+  }
+  for (let i = 0; i < 12; i++) {
+    const a = this.rot + i * Math.PI / 6;
+    const len = R * (0.12 + this.smooth[i] * 0.88);
+    const g = ctx.createLinearGradient(cx, cy, cx + Math.cos(a) * len, cy + Math.sin(a) * len);
+    g.addColorStop(0, color(i, 0, 0.75, 0.14));
+    g.addColorStop(0.6, color(i, 0.20 + this.smooth[i] * 0.30, 0.72, 0.15));
+    g.addColorStop(1, color(i, 0, 0.8, 0.1));
+    ctx.strokeStyle = g;
+    ctx.lineWidth = (3 + this.smooth[i] * 16) * (0.7 + audio.level * 0.6);
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * R * 0.06, cy + Math.sin(a) * R * 0.06);
+    ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len); ctx.stroke();
+  }
+  const core = R * (0.045 + audio.level * 0.07);
+  const pc = audio.dominantPc >= 0 ? audio.dominantPc : 2;
+  const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, core * 2.4);
+  cg.addColorStop(0, color(pc, 0.55, 0.9, 0.07));
+  cg.addColorStop(0.5, color(pc, 0.22, 0.75, 0.13));
+  cg.addColorStop(1, color(pc, 0, 0.7, 0.13));
+  ctx.fillStyle = cg;
+  ctx.beginPath(); ctx.arc(cx, cy, core * 2.4, 0, Math.PI * 2); ctx.fill();
+  if (audio.flux > 0.05 && this.embers.length < 220) {
+    for (let e = 0; e < Math.min(8, audio.flux * 20); e++) {
+      const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 5 * (1 + audio.level);
+      this.embers.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        pc: (pc + [0, 7, 4][e % 3]) % 12, life: 1 });
+    }
+  }
+  for (let i = this.embers.length - 1; i >= 0; i--) {
+    const e = this.embers[i];
+    e.x += e.vx; e.y += e.vy; e.vy += 0.02; e.life -= 0.008;
+    if (e.life <= 0) { this.embers.splice(i, 1); continue; }
+    ctx.fillStyle = color(e.pc, e.life * 0.45, 0.78, 0.12);
+    ctx.beginPath(); ctx.arc(e.x, e.y, 1.2 + e.life * 2.2, 0, Math.PI * 2); ctx.fill();
+  }`,
+});
