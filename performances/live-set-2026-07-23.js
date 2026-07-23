@@ -259,3 +259,13 @@ window.LIVESET.acts.push({
    strike rings its halo like a bell. Sketch-only evolution — material
    and movement unchanged so the transition is seamless on screen.
    (Sketch body lives in the transcript; replay via acts[3] + moon.) */
+
+/* ---- act vi / vi·b — firefly rose (residency, 14:17–14:24) -------
+   The page had been reloaded mid-residency (which wiped the runtime
+   act and prompted the persistence fix), and the room had repainted
+   itself in embers/orphic-rose autumn. The act respects that scene:
+   a five-petal halo rose turning at the center, petals voiced by the
+   three strongest notes in the room; 90 fireflies whose blink surges
+   with loudness; sparks rising on flux. vi·b adds creeping tendrils
+   that grow only while the room sounds — and only while someone is
+   watching, since the browser pauses hidden tabs. Sketch-only. */
