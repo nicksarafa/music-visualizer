@@ -417,3 +417,23 @@ window.LIVESET.acts.push({
    seat on the circle of fifths, stem-linked to the previous pad — a
    slowly fading map of where the harmony has walked. The G#→G→F#
    chromatic descent drew the first stones. */
+
+/* ---- act xi — the confluence (residency finale, 15:02–15:12) -----
+   The audience returned and played HARD (up to 13 strikes/10s,
+   level 0.47 — the loudest of the hour). The finale gathered every
+   creature of the residency around a mandala whose nested arcs are
+   the hour's actual harmonic journey [C#, E, G#, F, C#, E, F#, G#,
+   C#, A] — each ring waking when the room touches its note again.
+   Rapid variations stacked on top at 45-second beats:
+     xi·b  self-mutating phase engine (murmuration surge → koi frenzy
+           → mandala bloom → aurora flare → glitter storm, ~12s each,
+           captioned on-canvas)
+     xi·c  comet volleys erupting from the mandala at 6+ strikes/10s
+     xi·d  strike tides — every strike sweeps a full-width wave of
+           its color up the canvas with a shimmering crest
+     xi·e  constellation lightning + sheet flash at 10+ strikes/10s
+     xi·f  fortissimo — a global surge multiplier above level 0.4
+     xi·g  ghost calligrapher — every dominant-note change paints a
+           spectral thick-to-thin stroke in that note's color
+   The full sketch bodies live in the session transcript; the scene
+   remains reproducible from acts[4] plus these notes. */
